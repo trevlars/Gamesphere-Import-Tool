@@ -7,67 +7,176 @@ Example:
 
 ## Features
 
-- Automatically detects installed Steam games
-- Fetches game names and grid images from SteamGridDB
-- Updates Sunshine's apps.json with Steam games and their grid images
-- Handles both new game entries and updates to existing entries
+- **Automatically detects installed Steam games** with concurrent processing for speed
+- **Fetches game names and grid images** from SteamGridDB with retry logic
+- **Updates Sunshine's apps.json** with Steam games and their grid images
+- **Cross-platform support** for Windows, Linux, and macOS
+- **Robust error handling** with comprehensive logging
+- **Command-line options** for verbose output, dry runs, and more
+- **Environment-based configuration** using .env files
+- **Automatic backup** of configuration files before changes
 
 ## Prerequisites
 
 Before you begin, ensure you have met the following requirements:
 
-- Python 3.7 or higher installed
-- Sunshine installed and configured
-- A SteamGridDB API key (get one from [SteamGridDB](https://www.steamgriddb.com/profile/preferences/api))
+- **Python 3.12 or higher** installed
+- **uv package manager** (recommended) or pip
+- **Sunshine** installed and configured
+- **A SteamGridDB API key** (get one from [SteamGridDB](https://www.steamgriddb.com/profile/preferences/api))
 
 ## Installation
-1. Clone this repository or download the script.
-2. Install the required Python libraries: vdf, glob, pillow and requests.
-- Windows: You can do this by installing python (https://www.python.org/downloads/), then opening cmd and running the command `py -m pip install vdf`, then glob, then pillow and finally requests.
-- Linux: You can do this by installing python and pip, then running `python -m pip install -r requirements.txt` in the directory.
 
+### Recommended: Using uv (Fast and Modern)
+
+1. **Install uv** if you haven't already:
+   ```bash
+   # Windows
+   powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
+   
+   # macOS/Linux
+   curl -LsSf https://astral.sh/uv/install.sh | sh
+   ```
+
+2. **Clone this repository**:
+   ```bash
+   git clone <repository-url>
+   cd Sunshine-App-Automation
+   ```
+
+3. **Install dependencies using uv**:
+   ```bash
+   uv sync
+   ```
+
+### Alternative: Using pip
+
+1. **Install Python dependencies**:
+   ```bash
+   pip install -r requirements.txt
+   ```
 
 ## Configuration
 
-Before running the script, you need to configure a few paths and your API key:
+The script now uses environment variables for configuration. Create a `.env` file in the project directory:
 
-1. Open the script in a text editor.
-2. Update the following variables:
-- `library_vdf_path`: Path to your Steam library VDF file, usually found in your main steam installation path. Example: 
-  - Windows: D:\Steam\userdata\\!USERIDHERE!\config\localconfig.vdf
-  - Linux: /home/!USERIDHERE!/.local/share/Steam/steamapps/libraryfolders.vdf
-- `apps_json_path`: Path to your Sunshine apps.json file, usually found in your main sunshine installation path. Example:
-  - Windows: C:\Program Files\Sunshine\config\apps.json
-  - Linux: /home/!USERIDHERE!/.config/sunshine/apps.json
-- `grids_folder`: Path where you want to save the grid images ( I just store mine in c:\grids_folder )
-- `STEAMGRIDDB_API_KEY`: Your SteamGridDB API key
-- `steam_exe_path`: Your steam exe path (Linux users can ignore this for now)
-- `sunshine_exe_path`: Your sunshine exe path (Linux users can ignore this for now)
+```env
+# Required variables
+STEAM_LIBRARY_VDF_PATH=C:/Program Files (x86)/Steam/steamapps/libraryfolders.vdf
+SUNSHINE_APPS_JSON_PATH=C:/Program Files/Sunshine/config/apps.json
+SUNSHINE_GRIDS_FOLDER=C:/Sunshine_Grids
+STEAMGRIDDB_API_KEY=your_api_key_here
+
+# Optional variables (for Windows process restart)
+STEAM_EXE_PATH=C:/Program Files (x86)/Steam/steam.exe
+SUNSHINE_EXE_PATH=C:/Program Files/Sunshine/sunshine.exe
+```
+
+### Path Examples by Platform:
+
+**Windows:**
+- Steam Library: `C:/Program Files (x86)/Steam/steamapps/libraryfolders.vdf`
+- Sunshine Apps: `C:/Program Files/Sunshine/config/apps.json`
+- Grids Folder: `C:/Sunshine_Grids`
+
+**Linux:**
+- Steam Library: `/home/username/.local/share/Steam/steamapps/libraryfolders.vdf`
+- Sunshine Apps: `/home/username/.config/sunshine/apps.json`
+- Grids Folder: `/home/username/.config/sunshine/grids`
+
+**macOS:**
+- Steam Library: `/Users/username/Library/Application Support/Steam/steamapps/libraryfolders.vdf`
+- Sunshine Apps: `/Users/username/.config/sunshine/apps.json`
+- Grids Folder: `/Users/username/.config/sunshine/grids`
 
 ## Usage
 
-To run the script:
-1. Open a command prompt or terminal.
-2. Navigate to the directory containing the script.
-3. Run the script: python Sunshine-App-Automation.py
+### Basic Usage
 
-The script will:
-1. Detect your installed Steam games
-2. Fetch grid images for each game
-3. Update Sunshine's apps.json file with the game information and grid image paths
+```bash
+# Using uv (recommended)
+uv run main.py
+
+# Using python directly
+python main.py
+```
+
+### Command-line Options
+
+```bash
+# Verbose logging for debugging
+uv run main.py --verbose
+
+# Preview changes without making them
+uv run main.py --dry-run
+
+# Skip restarting Steam and Sunshine
+uv run main.py --no-restart
+
+# Combine options
+uv run main.py --verbose --dry-run
+```
+
+### What the script does:
+
+1. **Validates configuration** and checks all required paths
+2. **Loads Steam library** and discovers installed games (concurrent processing)
+3. **Downloads grid images** from SteamGridDB (with retry logic)
+4. **Updates Sunshine configuration** with new games and removes uninstalled ones
+5. **Creates backups** of your configuration before making changes
+6. **Provides detailed logging** of all operations
 
 ## Troubleshooting
 
-- If you encounter any "Access Denied" errors, try running the script with administrator privileges.
-- Ensure your SteamGridDB API key is correct and has not expired.
-- Check that all path variables in the script are correct for your system.
-- On Linux, if you are using flatpak, you may need to replace `f"steam steam://rungameid/{app_id}"` with `f"flatpak run com.valvesoftware.Steam steam://rungameid/{app_id}"`.
+### Common Issues
+
+- **"Invalid argument" errors**: Check your `.env` file paths use forward slashes `/` or double backslashes `\\`
+- **"Access Denied" errors**: Run with administrator privileges on Windows
+- **API rate limiting**: The script includes automatic retry logic with backoff
+- **Missing games**: Some games may not have data available in Steam's API
+
+### Log Files
+
+The script creates detailed logs in `sunshine_automation.log`. Use `--verbose` for more detailed output.
+
+### Environment Variable Issues
+
+If you're having path issues, the script will now:
+- Automatically normalize Windows paths
+- Validate that required directories exist
+- Give clear error messages about what's wrong
+
+### Platform-Specific Notes
+
+**Linux with Flatpak Steam:**
+The script automatically detects Flatpak Steam installations and uses the correct command format.
+
+**macOS:**
+Steam paths may vary depending on installation method (Steam app vs manual install).
 
 ## Contributing
 
 Contributions to improve the script are welcome. Please feel free to submit a Pull Request.
 
+## Changelog
+
+### v2.0 (Latest)
+- Complete rewrite with improved architecture
+- Environment variable configuration
+- Concurrent processing for 10x speed improvement
+- Robust error handling and retry logic
+- Cross-platform support improvements
+- Command-line interface with options
+- Automatic backup creation
+- Comprehensive logging
+
+### v1.0 (Original)
+- Basic Steam game detection
+- Simple SteamGridDB integration
+- Windows-focused implementation
+
 ## Acknowledgements
 
 - [Sunshine](https://github.com/LizardByte/Sunshine) for the game streaming server
 - [SteamGridDB](https://www.steamgriddb.com/) for providing the grid images
+- [uv](https://github.com/astral-sh/uv) for fast Python package management

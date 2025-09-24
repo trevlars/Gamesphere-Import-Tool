@@ -1,4 +1,6 @@
 vdf
 requests
 pillow
-glob
+glob2
+psutil
+dotenv
