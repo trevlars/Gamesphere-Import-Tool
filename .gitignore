@@ -1,0 +1,29 @@
+# Environment and secrets
+.env
+*.env.local
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.venv/
+venv/
+env/
+
+# Build / install
+build/
+dist/
+*.egg-info/
+*.egg
+
+# IDE and OS
+.idea/
+.vscode/
+*.swp
+.DS_Store
+Thumbs.db
+
+# Project
+sunshine_automation.log
+*.backup

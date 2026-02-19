@@ -3,4 +3,5 @@ requests
 pillow
 glob2
 psutil
-dotenv
+python-dotenv
+customtkinter>=5.2.0

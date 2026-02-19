@@ -1,6 +1,8 @@
-# Sunshine Steam Game Importer
+# Gamesphere Import Tool
 
-This Python script automatically imports your INSTALLED Steam games into Sunshine, a game streaming server, complete with grid images for each game. 
+**Gamesphere Import Tool** imports your installed Steam games into [Sunshine](https://github.com/LizardByte/Sunshine) or [Apollo](https://github.com/ClassicOldSong/Apollo) (game streaming hosts), with grid artwork from SteamGridDB.
+
+> This project is a fork of [Sunshine-App-Automation](https://github.com/CommonMugger/Sunshine-App-Automation) by CommonMugger, with a Windows GUI, Apollo support, and other improvements. 
 
 Example: 
 ![IMG_0759](https://github.com/user-attachments/assets/365301a4-57d8-4b5e-a9d6-5ba4573af638)
@@ -9,7 +11,7 @@ Example:
 
 - **Automatically detects installed Steam games** with concurrent processing for speed
 - **Fetches game names and grid images** from SteamGridDB with retry logic
-- **Updates Sunshine's apps.json** with Steam games and their grid images
+- **Updates Sunshine/Apollo apps.json** with Steam games and their grid images
 - **Cross-platform support** for Windows, Linux, and macOS
 - **Robust error handling** with comprehensive logging
 - **Command-line options** for verbose output, dry runs, and more
@@ -22,7 +24,7 @@ Before you begin, ensure you have met the following requirements:
 
 - **Python 3.12 or higher** installed
 - **uv package manager** (recommended) or pip
-- **Sunshine** installed and configured
+- **Sunshine** or **Apollo** installed and configured
 - **A SteamGridDB API key** (get one from [SteamGridDB](https://www.steamgriddb.com/profile/preferences/api))
 
 ## Installation
@@ -40,8 +42,8 @@ Before you begin, ensure you have met the following requirements:
 
 2. **Clone this repository**:
    ```bash
-   git clone <repository-url>
-   cd Sunshine-App-Automation
+   git clone https://github.com/trevlars/Gamesphere-Import-Tool.git
+   cd Gamesphere-Import-Tool
    ```
 
 3. **Install dependencies using uv**:
@@ -55,6 +57,20 @@ Before you begin, ensure you have met the following requirements:
    ```bash
    pip install -r requirements.txt
    ```
+
+## Windows GUI
+
+On Windows you can use the **Gamesphere Import Tool** GUI instead of the command line:
+
+1. Install dependencies (including `customtkinter`):  
+   `pip install -r requirements.txt` or `uv sync`
+2. Run the GUI:  
+   `python gui.py` or `uv run gui.py`
+3. Choose **Sunshine** or **Apollo** as the streaming host (default paths update automatically).
+4. Fill in the paths and your SteamGridDB API key; use **Browse** to pick files/folders.
+5. Use **Save config** to write a `.env` file, then **Run importer** to run the automation. Log output appears in the window.
+
+The GUI uses the same `.env` as the CLI, so you can switch between GUI and command line.
 
 ## Configuration
 
@@ -110,7 +126,7 @@ uv run main.py --verbose
 # Preview changes without making them
 uv run main.py --dry-run
 
-# Skip restarting Steam and Sunshine
+# Skip restarting Steam and the streaming host
 uv run main.py --no-restart
 
 # Combine options
@@ -122,7 +138,7 @@ uv run main.py --verbose --dry-run
 1. **Validates configuration** and checks all required paths
 2. **Loads Steam library** and discovers installed games (concurrent processing)
 3. **Downloads grid images** from SteamGridDB (with retry logic)
-4. **Updates Sunshine configuration** with new games and removes uninstalled ones
+4. **Updates Sunshine/Apollo configuration** with new games and removes uninstalled ones
 5. **Creates backups** of your configuration before making changes
 6. **Provides detailed logging** of all operations
 
@@ -154,29 +170,33 @@ The script automatically detects Flatpak Steam installations and uses the correc
 **macOS:**
 Steam paths may vary depending on installation method (Steam app vs manual install).
 
+## Repository
+
+**[github.com/trevlars/Gamesphere-Import-Tool](https://github.com/trevlars/Gamesphere-Import-Tool)**
+
 ## Contributing
 
 Contributions to improve the script are welcome. Please feel free to submit a Pull Request.
 
 ## Changelog
 
-### v2.0 (Latest)
+### Gamesphere Import Tool (this fork)
+- Windows GUI (CustomTkinter) with config form and log output
+- **Sunshine** and **Apollo** support with host selector and default paths
+- Host restart works for both Sunshine and Apollo
+- Fork attribution and rebrand as Gamesphere Import Tool
+
+### v2.0 (upstream)
 - Complete rewrite with improved architecture
 - Environment variable configuration
-- Concurrent processing for 10x speed improvement
-- Robust error handling and retry logic
-- Cross-platform support improvements
-- Command-line interface with options
-- Automatic backup creation
-- Comprehensive logging
+- Concurrent processing, retry logic, cross-platform CLI
 
-### v1.0 (Original)
-- Basic Steam game detection
-- Simple SteamGridDB integration
-- Windows-focused implementation
+### v1.0 (original)
+- Basic Steam game detection and SteamGridDB integration
 
 ## Acknowledgements
 
-- [Sunshine](https://github.com/LizardByte/Sunshine) for the game streaming server
-- [SteamGridDB](https://www.steamgriddb.com/) for providing the grid images
+- [CommonMugger/Sunshine-App-Automation](https://github.com/CommonMugger/Sunshine-App-Automation) — original project this fork is based on
+- [Sunshine](https://github.com/LizardByte/Sunshine) and [Apollo](https://github.com/ClassicOldSong/Apollo) — game streaming hosts
+- [SteamGridDB](https://www.steamgriddb.com/) for grid images
 - [uv](https://github.com/astral-sh/uv) for fast Python package management

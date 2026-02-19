@@ -1,7 +1,7 @@
 [project]
-name = "sunshine-app-automation"
-version = "0.1.0"
-description = "Add your description here"
+name = "gamesphere-import-tool"
+version = "0.2.0"
+description = "Import Steam games into Sunshine or Apollo with grid artwork for Gamesphere (Windows GUI + CLI)"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
@@ -11,4 +11,5 @@ dependencies = [
     "psutil>=7.0.0",
     "requests>=2.32.4",
     "vdf>=3.4",
+    "customtkinter>=5.2.0",
 ]

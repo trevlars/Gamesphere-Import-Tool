@@ -72,6 +72,8 @@ def validate_config() -> Dict[str, str]:
                 value = normalize_path(value)
                 logging.debug(f"Normalized {var}: {value}")
         config[var] = value
+        # Also set uppercase key for later use (e.g. STEAM_LIBRARY_VDF_PATH)
+        config[var.upper()] = value
     
     # Optional variables with defaults
     steam_exe = os.getenv('STEAM_EXE_PATH', '')
@@ -137,21 +139,22 @@ def restart_steam(steam_exe_path: str) -> None:
         logging.error(f"Error restarting Steam: {e}")
 
 def restart_sunshine(sunshine_exe_path: str) -> None:
-    """Restart Sunshine application safely."""
+    """Restart Sunshine/Apollo (or other Sunshine-compatible host) safely."""
     if os.name != 'nt':
-        logging.warning("Sunshine restarting is only supported on Windows. Please restart Sunshine manually.")
+        logging.warning("Host restarting is only supported on Windows. Please restart manually.")
         return
     
     if not sunshine_exe_path or not os.path.exists(sunshine_exe_path):
-        logging.warning("Sunshine executable path not configured or doesn't exist. Skipping Sunshine restart.")
+        logging.warning("Host executable path not configured or doesn't exist. Skipping restart.")
         return
     
-    logging.info("Restarting Sunshine...")
+    # Derive process name from exe path so both Sunshine and Apollo work
+    process_name = os.path.basename(sunshine_exe_path).lower()
+    logging.info(f"Restarting host ({process_name})...")
     try:
-        # Terminate Sunshine processes
         terminated = False
         for proc in psutil.process_iter(['name', 'pid']):
-            if proc.info['name'] and proc.info['name'].lower() == 'sunshine.exe':
+            if proc.info['name'] and proc.info['name'].lower() == process_name:
                 logging.debug(f"Terminating Sunshine process (PID: {proc.info['pid']})")
                 proc.terminate()
                 try:
@@ -164,10 +167,9 @@ def restart_sunshine(sunshine_exe_path: str) -> None:
         if terminated:
             time.sleep(3)  # Brief pause before restart
         
-        # Start Sunshine
-        logging.info(f"Starting Sunshine from: {sunshine_exe_path}")
+        logging.info(f"Starting host from: {sunshine_exe_path}")
         subprocess.Popen([sunshine_exe_path], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        logging.info("Sunshine restart completed")
+        logging.info("Host restart completed")
         
     except Exception as e:
         logging.error(f"Error restarting Sunshine: {e}")
