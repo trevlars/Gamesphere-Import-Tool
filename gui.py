@@ -218,10 +218,17 @@ def run_automation(env_vars, dry_run, verbose, no_restart, log_queue, remove_gam
     log_queue.put(("done",))
 
 
-# GameSphere accent (red from app icon) — used for buttons, dropdown, checkboxes
+# GameSphere accent (red from app icon) — used for buttons, dropdown, checkboxes, cell backgrounds
 if HAS_CTK:
     _GS_COLOR = ("#C42E1A", "#8B1A10")
     _GS_HOVER = ("#A32615", "#6D150C")
+    _GS_MUTED = ("gray45", "gray28")  # unselected host button
+
+def _cell_red_kw():
+    """Kwargs for frames that should use the same red as buttons (SettingsViewController style)."""
+    if HAS_CTK:
+        return {"fg_color": _GS_COLOR}
+    return {"bg": "#8B1A10"}
 
 
 def _icon_path():
@@ -257,7 +264,6 @@ class SunshineGUI:
 
         self.entries = {}
         self.host_var = None
-        self.host_dropdown = None
         self.dry_run_var = None
         self.verbose_var = None
         self.no_restart_var = None
@@ -334,10 +340,24 @@ class SunshineGUI:
         host = choice.lower() if choice else "sunshine"
         if host not in HOST_DEFAULTS:
             host = "sunshine"
+        self.host_var.set(host.capitalize())
         defaults = HOST_DEFAULTS[host]
         for key in ("sunshine_apps_json_path", "sunshine_grids_folder", "SUNSHINE_EXE_PATH"):
             self.entries[key].delete(0, "end")
             self.entries[key].insert(0, defaults.get(key, ""))
+        self._update_host_buttons()
+
+    def _update_host_buttons(self):
+        """Set selected host button prominent, other muted."""
+        if not HAS_CTK or not getattr(self, "_host_sunshine_btn", None):
+            return
+        current = (self.host_var.get() or "sunshine").lower()
+        for name, btn in (("sunshine", self._host_sunshine_btn), ("apollo", self._host_apollo_btn)):
+            selected = name == current
+            btn.configure(
+                fg_color=_GS_COLOR if selected else _GS_MUTED,
+                hover_color=_GS_HOVER if selected else ("gray55", "gray35"),
+            )
 
     def _on_canvas_configure(self, event):
         w, h = event.width, event.height
@@ -353,8 +373,9 @@ class SunshineGUI:
         c.delete("gradient")
         if w <= 0 or h <= 0:
             return
-        r1, g1, b1 = _hex_to_rgb(_GS_GRADIENT_TOP)
-        r2, g2, b2 = _hex_to_rgb(_GS_GRADIENT_BOTTOM)
+        # Dark at top, light at bottom
+        r1, g1, b1 = _hex_to_rgb(_GS_GRADIENT_BOTTOM)
+        r2, g2, b2 = _hex_to_rgb(_GS_GRADIENT_TOP)
         steps = max(2, min(80, h // 4))
         step = h / steps
         for i in range(steps):
@@ -385,33 +406,44 @@ class SunshineGUI:
         main.update_idletasks()
         self._gradient_canvas.bind("<Configure>", self._on_canvas_configure)
 
-        # Config section
+        # Config section (transparent so gradient shows)
         config_frame = self._frame(main)
+        if HAS_CTK:
+            config_frame.configure(fg_color="transparent")
+        else:
+            config_frame.configure(bg=_GS_GRADIENT_BOTTOM)
         config_frame.pack(fill="x", pady=(0, 8))
         self._label(config_frame, text="Configuration", font=("", 14, "bold")).pack(anchor="w")
 
-        # Streaming host selector
-        host_row = self._frame(config_frame)
+        # Streaming host: side-by-side buttons (selected = prominent, other = muted)
+        host_row = self._frame(config_frame, **_cell_red_kw())
         host_row.pack(fill="x", pady=(0, 6))
         self._label(host_row, text="Streaming host:", width=32, anchor="w").pack(side="left", padx=(0, 8))
         self.host_var = tk.StringVar(value="Sunshine")
         if HAS_CTK:
-            self.host_dropdown = ctk.CTkOptionMenu(
-                host_row,
-                variable=self.host_var,
-                values=["Sunshine", "Apollo"],
-                command=self._on_host_change,
-                width=200,
-                fg_color=_GS_COLOR,
-                button_color=_GS_HOVER,
-                button_hover_color=_GS_HOVER,
+            btn_frame = self._frame(host_row, fg_color="transparent")
+            btn_frame.pack(side="left")
+            self._host_sunshine_btn = ctk.CTkButton(
+                btn_frame, text="Sunshine", width=120,
+                command=lambda: self._on_host_change("Sunshine"),
+                fg_color=_GS_COLOR, hover_color=_GS_HOVER,
             )
+            self._host_sunshine_btn.pack(side="left", padx=(0, 6))
+            self._host_apollo_btn = ctk.CTkButton(
+                btn_frame, text="Apollo", width=120,
+                command=lambda: self._on_host_change("Apollo"),
+                fg_color=_GS_MUTED, hover_color=("gray55", "gray35"),
+            )
+            self._host_apollo_btn.pack(side="left")
+            self._update_host_buttons()
         else:
-            self.host_dropdown = tk.OptionMenu(host_row, self.host_var, "Sunshine", "Apollo", command=self._on_host_change)
-        self.host_dropdown.pack(side="left")
+            self._host_sunshine_btn = tk.Button(host_row, text="Sunshine", width=12, command=lambda: self._on_host_change("Sunshine"))
+            self._host_sunshine_btn.pack(side="left", padx=(0, 6))
+            self._host_apollo_btn = tk.Button(host_row, text="Apollo", width=12, command=lambda: self._on_host_change("Apollo"))
+            self._host_apollo_btn.pack(side="left")
 
         for key, label in ENV_KEYS.items():
-            row = self._frame(config_frame)
+            row = self._frame(config_frame, **_cell_red_kw())
             row.pack(fill="x", pady=2)
             self._label(row, text=label + ":", width=32, anchor="w").pack(side="left", padx=(0, 8))
             entry = self._entry(row)
@@ -434,8 +466,12 @@ class SunshineGUI:
                 btn = self._button(row, "Browse…", make_browse())
                 btn.pack(side="right")
 
-        # Options
+        # Options (transparent)
         opt_frame = self._frame(main)
+        if HAS_CTK:
+            opt_frame.configure(fg_color="transparent")
+        else:
+            opt_frame.configure(bg=_GS_GRADIENT_BOTTOM)
         opt_frame.pack(fill="x", pady=8)
         self._label(opt_frame, text="Options", font=("", 14, "bold")).pack(anchor="w")
         self.dry_run_var = tk.BooleanVar(value=False)
@@ -445,8 +481,8 @@ class SunshineGUI:
         self._checkbox(opt_frame, "Verbose logging", self.verbose_var).pack(anchor="w")
         self._checkbox(opt_frame, "Do not start Steam or restart host (Sunshine/Apollo)", self.no_restart_var).pack(anchor="w")
 
-        # Buttons
-        btn_frame = self._frame(main)
+        # Buttons (button red)
+        btn_frame = self._frame(main, **_cell_red_kw())
         btn_frame.pack(fill="x", pady=8)
         self._button(btn_frame, "Save config", self._save_config).pack(side="left", padx=(0, 8))
         self.run_btn = self._button(btn_frame, "Run importer", self._on_run)
@@ -456,7 +492,7 @@ class SunshineGUI:
 
         # Log
         self._label(main, text="Log", font=("", 14, "bold")).pack(anchor="w")
-        log_frame = self._frame(main)
+        log_frame = self._frame(main, **_cell_red_kw())
         log_frame.pack(fill="both", expand=True, pady=4)
         self.log_text = scrolledtext.ScrolledText(
             log_frame, wrap="word", height=12, state="disabled",
@@ -470,6 +506,7 @@ class SunshineGUI:
             entry.delete(0, "end")
             entry.insert(0, values.get(key, ""))
         self.host_var.set(host.capitalize())
+        self._update_host_buttons()
 
     def _get_values(self):
         return {key: entry.get().strip() for key, entry in self.entries.items()}
