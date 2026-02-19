@@ -230,10 +230,13 @@ class SunshineGUI:
     def __init__(self):
         if HAS_CTK:
             ctk.set_appearance_mode("dark")
-            theme_path = _assets_path("gamesphere_theme.json")
-            if os.path.exists(theme_path):
-                ctk.set_default_color_theme(theme_path)
-            else:
+            try:
+                theme_path = _assets_path("gamesphere_theme.json")
+                if os.path.exists(theme_path):
+                    ctk.set_default_color_theme(theme_path)
+                else:
+                    ctk.set_default_color_theme("blue")
+            except Exception:
                 ctk.set_default_color_theme("blue")
         self.root = ctk.CTk() if HAS_CTK else tk.Tk()
         self.root.title("GameSphere Import Tool")
@@ -311,18 +314,18 @@ class SunshineGUI:
         # Header with GameSphere logo and title
         header = self._frame(main)
         header.pack(fill="x", pady=(0, 12))
-        logo_path = _assets_path("gamesphere_logo.png")
-        if os.path.exists(logo_path):
-            try:
+        try:
+            logo_path = _assets_path("gamesphere_logo.png")
+            if os.path.exists(logo_path):
                 from tkinter import PhotoImage
                 logo_img = PhotoImage(file=logo_path)
                 logo_small = logo_img.subsample(21, 21)
                 self._header_logo = logo_small
-                bg = "#1c1c1e" if HAS_CTK else (header["bg"] if hasattr(header, "cget") and header.cget("bg") else "#1c1c1e")
+                bg = "#1c1c1e" if HAS_CTK else (header.cget("bg") if getattr(header, "cget", None) else "#1c1c1e")
                 logo_label = tk.Label(header, image=logo_small, bg=bg)
                 logo_label.pack(side="left", padx=(0, 10))
-            except Exception:
-                pass
+        except Exception:
+            pass
         self._label(header, text="GameSphere Import Tool", font=("", 18, "bold")).pack(side="left", anchor="w")
 
         # Config section
