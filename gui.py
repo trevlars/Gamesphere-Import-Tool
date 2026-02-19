@@ -10,13 +10,12 @@ import threading
 import queue
 
 # Try CustomTkinter for modern look; fall back to tkinter
+import tkinter as tk
+from tkinter import messagebox, scrolledtext, filedialog
 try:
     import customtkinter as ctk
-    from tkinter import messagebox, scrolledtext, filedialog
     HAS_CTK = True
 except ImportError:
-    import tkinter as tk
-    from tkinter import messagebox, scrolledtext, filedialog
     ctk = tk  # use standard tk
     HAS_CTK = False
 
