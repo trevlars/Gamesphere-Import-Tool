@@ -59,4 +59,5 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
+    uac_admin=True,  # Request admin so we can write to Program Files (Sunshine/Apollo config)
 )

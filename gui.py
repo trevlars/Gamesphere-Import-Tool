@@ -9,6 +9,23 @@ import sys
 import threading
 import queue
 
+# Request admin on Windows so we can write to Program Files (Sunshine/Apollo config)
+def _request_admin_and_rerun():
+    if sys.platform != "win32":
+        return
+    try:
+        import ctypes
+        if ctypes.windll.shell32.IsUserAnAdmin():
+            return  # Already admin
+        # Re-launch with "runas" to trigger UAC
+        exe = sys.executable
+        args = " ".join(f'"{a}"' if " " in a else a for a in sys.argv[1:]) if sys.argv[1:] else ""
+        ret = ctypes.windll.shell32.ShellExecuteW(None, "runas", exe, args, None, 1)
+        if ret > 32:  # Success
+            sys.exit(0)
+    except Exception:
+        pass  # Proceed without admin (user can still run as admin manually)
+
 # Try CustomTkinter for modern look; fall back to tkinter
 import tkinter as tk
 from tkinter import messagebox, scrolledtext, filedialog
@@ -45,7 +62,7 @@ HOST_DEFAULTS = {
         "sunshine_grids_folder": "C:/Apollo_Thumbnails",
         "steamgriddb_api_key": "",
         "STEAM_EXE_PATH": "C:/Program Files (x86)/Steam/steam.exe",
-        "SUNSHINE_EXE_PATH": "C:/Program Files/Apollo/Apollo.exe",
+        "SUNSHINE_EXE_PATH": "C:/Program Files/Apollo/sunshine.exe",
     },
 }
 
@@ -318,7 +335,7 @@ class SunshineGUI:
         self.no_restart_var = tk.BooleanVar(value=False)
         self._checkbox(opt_frame, "Dry run (preview only)", self.dry_run_var).pack(anchor="w")
         self._checkbox(opt_frame, "Verbose logging", self.verbose_var).pack(anchor="w")
-        self._checkbox(opt_frame, "Do not restart Steam/Sunshine", self.no_restart_var).pack(anchor="w")
+        self._checkbox(opt_frame, "Do not start Steam or restart host (Sunshine/Apollo)", self.no_restart_var).pack(anchor="w")
 
         # Buttons
         btn_frame = self._frame(main)
@@ -419,6 +436,7 @@ class SunshineGUI:
 
 
 def main():
+    _request_admin_and_rerun()  # On Windows, re-launch as admin so we can write to Program Files
     if sys.platform != "win32":
         print("This GUI is intended for Windows. On other platforms use: python main.py")
         # Still allow running for testing on Mac

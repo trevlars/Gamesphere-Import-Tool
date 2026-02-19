@@ -105,42 +105,40 @@ def validate_config() -> Dict[str, str]:
     return config
 
 
-def restart_steam(steam_exe_path: str) -> None:
-    """Restart Steam application safely."""
+def _is_steam_running() -> bool:
+    """Return True if steam.exe is already running (Windows)."""
     if os.name != 'nt':
-        logging.warning("Steam restarting is only supported on Windows. Please restart Steam manually if any game is missing.")
-        return
-    
-    if not steam_exe_path or not os.path.exists(steam_exe_path):
-        logging.warning("Steam executable path not configured or doesn't exist. Skipping Steam restart.")
-        return
-    
-    logging.info("Restarting Steam...")
+        return False
     try:
-        # Terminate Steam processes
-        terminated = False
-        for proc in psutil.process_iter(['name', 'pid']):
-            if proc.info['name'] and proc.info['name'].lower() == 'steam.exe':
-                logging.debug(f"Terminating Steam process (PID: {proc.info['pid']})")
-                proc.terminate()
-                try:
-                    proc.wait(timeout=30)
-                    terminated = True
-                except psutil.TimeoutExpired:
-                    logging.warning(f"Steam process (PID: {proc.info['pid']}) didn't terminate gracefully")
-                    proc.kill()
-        
-        if terminated:
-            time.sleep(3)  # Brief pause before restart
-        
-        # Start Steam
-        logging.info(f"Starting Steam from: {steam_exe_path}")
+        for proc in psutil.process_iter(['name']):
+            if proc.info.get('name') and proc.info['name'].lower() == 'steam.exe':
+                return True
+    except Exception:
+        pass
+    return False
+
+
+def ensure_steam_running(steam_exe_path: str) -> None:
+    """Start Steam only if it is not already running. Does not restart or close Steam."""
+    if os.name != 'nt':
+        logging.warning("Steam start is only supported on Windows. Ensure Steam is running if needed.")
+        return
+
+    if not steam_exe_path or not os.path.exists(steam_exe_path):
+        logging.warning("Steam executable path not configured or doesn't exist. Skipping Steam start.")
+        return
+
+    if _is_steam_running():
+        logging.info("Steam is already running. Skipping start.")
+        return
+
+    logging.info("Steam is not running. Starting Steam...")
+    try:
         subprocess.Popen([steam_exe_path], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        time.sleep(10)  # Wait for Steam to start up
-        logging.info("Steam restart completed")
-        
+        time.sleep(5)  # Brief pause for Steam to begin starting
+        logging.info("Steam start requested")
     except Exception as e:
-        logging.error(f"Error restarting Steam: {e}")
+        logging.error(f"Error starting Steam: {e}")
 
 def restart_sunshine(sunshine_exe_path: str) -> None:
     """Restart Sunshine/Apollo (or other Sunshine-compatible host) safely."""
@@ -545,7 +543,7 @@ def main() -> None:
     """Main application function."""
     parser = argparse.ArgumentParser(description='Sunshine Steam Game Automation')
     parser.add_argument('--verbose', '-v', action='store_true', help='Enable verbose logging')
-    parser.add_argument('--no-restart', action='store_true', help='Skip restarting Steam and Sunshine')
+    parser.add_argument('--no-restart', action='store_true', help='Skip starting Steam (if not running) and skip restarting Sunshine/Apollo')
     parser.add_argument('--dry-run', action='store_true', help='Show what would be done without making changes')
     args = parser.parse_args()
     
@@ -557,9 +555,9 @@ def main() -> None:
         # Load and validate configuration
         config = validate_config()
         
-        # Restart Steam before processing (unless disabled)
+        # Start Steam only if not already running (unless disabled)
         if not args.no_restart:
-            restart_steam(config['STEAM_EXE_PATH'])
+            ensure_steam_running(config['STEAM_EXE_PATH'])
         
         # Load installed games
         installed_games = load_installed_games(config['STEAM_LIBRARY_VDF_PATH'])

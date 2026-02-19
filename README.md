@@ -146,7 +146,7 @@ uv run main.py --verbose
 # Preview changes without making them
 uv run main.py --dry-run
 
-# Skip restarting Steam and the streaming host
+# Skip starting Steam (if not running) and skip restarting the streaming host
 uv run main.py --no-restart
 
 # Combine options
