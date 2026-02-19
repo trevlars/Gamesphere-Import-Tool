@@ -267,39 +267,39 @@ def fetch_grid_from_steamgriddb(app_id: str, api_key: str, grids_folder: str) ->
     return None
 
 
-# Steam CDN URLs (no API key, no signup) - same style used by many clients e.g. GameSphere
-STEAM_CDN_HEADER_URL = "https://cdn.cloudflare.steamstatic.com/steam/apps/{app_id}/header.jpg"
+# Steam CDN URLs (no API key, no signup) — box art (library cover) first, then header fallback
+STEAM_CDN_LIBRARY_URL = "https://cdn.cloudflare.steamstatic.com/steam/apps/{app_id}/library_600x900_2x.jpg"  # box art 1200x1800
+STEAM_CDN_LIBRARY_FALLBACK_URL = "https://cdn.cloudflare.steamstatic.com/steam/apps/{app_id}/library_600x900.jpg"  # 600x900
+STEAM_CDN_HEADER_URL = "https://cdn.cloudflare.steamstatic.com/steam/apps/{app_id}/header.jpg"  # wide tile fallback
+
+
+def _download_steam_cdn_image(url: str, app_id: str, grids_folder: str) -> Optional[str]:
+    """Download image from URL to grids_folder; return path or None."""
+    try:
+        response = requests.get(url, timeout=15)
+        response.raise_for_status()
+        if len(response.content) < 500:
+            return None
+        image = Image.open(io.BytesIO(response.content))
+        image.verify()
+        image = Image.open(io.BytesIO(response.content))
+        grid_path = os.path.join(grids_folder, f"{app_id}.png")
+        os.makedirs(grids_folder, exist_ok=True)
+        image.save(grid_path, "PNG")
+        logging.debug(f"Downloaded image from Steam CDN for AppID {app_id}: {grid_path}")
+        return grid_path
+    except Exception:
+        return None
 
 
 def fetch_grid_from_steam_cdn(app_id: str, grids_folder: str) -> Optional[str]:
-    """Fetch game grid image from Steam's public CDN. No API key or signup required."""
-    url = STEAM_CDN_HEADER_URL.format(app_id=app_id)
-    for attempt in range(3):
-        try:
-            response = requests.get(url, timeout=15)
-            response.raise_for_status()
-            if len(response.content) < 500:
-                logging.warning(f"Steam CDN returned tiny/no image for AppID {app_id}")
-                return None
-            try:
-                image = Image.open(io.BytesIO(response.content))
-                image.verify()
-                image = Image.open(io.BytesIO(response.content))
-                grid_path = os.path.join(grids_folder, f"{app_id}.png")
-                os.makedirs(grids_folder, exist_ok=True)
-                image.save(grid_path, "PNG")
-                logging.debug(f"Downloaded grid from Steam CDN for AppID {app_id}: {grid_path}")
-                return grid_path
-            except Exception as img_error:
-                logging.warning(f"Invalid image data for AppID {app_id}: {img_error}")
-                return None
-        except requests.exceptions.Timeout:
-            logging.warning(f"Timeout fetching Steam CDN grid for AppID {app_id} (attempt {attempt + 1}/3)")
-        except requests.exceptions.RequestException as e:
-            logging.warning(f"Request error for AppID {app_id} (attempt {attempt + 1}/3): {e}")
-            return None
-        if attempt < 2:
-            time.sleep(2 ** attempt)
+    """Fetch box-art (library cover) image from Steam's public CDN. No API key or signup required."""
+    for url_template in (STEAM_CDN_LIBRARY_URL, STEAM_CDN_LIBRARY_FALLBACK_URL, STEAM_CDN_HEADER_URL):
+        url = url_template.format(app_id=app_id)
+        path = _download_steam_cdn_image(url, app_id, grids_folder)
+        if path:
+            return path
+    logging.warning(f"No Steam CDN image found for AppID {app_id}")
     return None
 
 
