@@ -9,7 +9,8 @@ import sys
 import threading
 import queue
 
-# Request admin on Windows so we can write to Program Files (Sunshine/Apollo config)
+# Optional: request admin on Windows so we can write to Program Files (Sunshine/Apollo config).
+# Disabled at startup so the GUI always opens; user can right-click exe -> Run as administrator if needed.
 def _request_admin_and_rerun():
     if sys.platform != "win32":
         return
@@ -17,14 +18,11 @@ def _request_admin_and_rerun():
         import ctypes
         if ctypes.windll.shell32.IsUserAnAdmin():
             return  # Already admin
-        # Re-launch with "runas" to trigger UAC
-        exe = sys.executable
-        args = " ".join(f'"{a}"' if " " in a else a for a in sys.argv[1:]) if sys.argv[1:] else ""
-        ret = ctypes.windll.shell32.ShellExecuteW(None, "runas", exe, args, None, 1)
-        if ret > 32:  # Success
-            sys.exit(0)
+        # Re-launch with "runas" would exit this process and open GUI in elevated one,
+        # which often leaves user with no visible window (UAC cancel or different session).
+        # So we no longer do that here; GUI opens in current process.
     except Exception:
-        pass  # Proceed without admin (user can still run as admin manually)
+        pass
 
 # Try CustomTkinter for modern look; fall back to tkinter
 import tkinter as tk
@@ -220,29 +218,15 @@ def run_automation(env_vars, dry_run, verbose, no_restart, log_queue, remove_gam
     log_queue.put(("done",))
 
 
-def _assets_path(*parts):
-    """Path under assets/ (script dir, or PyInstaller extract dir when frozen)."""
-    root = getattr(sys, "_MEIPASS", _base_dir())
-    return os.path.join(root, "assets", *parts)
-
-
 class SunshineGUI:
     def __init__(self):
         if HAS_CTK:
             ctk.set_appearance_mode("dark")
-            try:
-                theme_path = _assets_path("gamesphere_theme.json")
-                if os.path.exists(theme_path):
-                    ctk.set_default_color_theme(theme_path)
-                else:
-                    ctk.set_default_color_theme("blue")
-            except Exception:
-                ctk.set_default_color_theme("blue")
+            ctk.set_default_color_theme("blue")
         self.root = ctk.CTk() if HAS_CTK else tk.Tk()
         self.root.title("GameSphere Import Tool")
         self.root.minsize(640, 520)
         self.root.geometry("720x580")
-        self._set_window_icon()
 
         self.entries = {}
         self.host_var = None
@@ -259,18 +243,6 @@ class SunshineGUI:
         self._build_ui()
         self._load_config()
         self._poll_log()
-
-    def _set_window_icon(self):
-        """Set window icon to GameSphere logo if available."""
-        logo_path = _assets_path("gamesphere_logo.png")
-        if not os.path.exists(logo_path):
-            return
-        try:
-            from tkinter import PhotoImage
-            self._icon_image = PhotoImage(file=logo_path)
-            self.root.iconphoto(True, self._icon_image)
-        except Exception:
-            pass
 
     def _frame(self, parent, **kwargs):
         if HAS_CTK:
@@ -310,23 +282,6 @@ class SunshineGUI:
     def _build_ui(self):
         main = self._frame(self.root)
         main.pack(fill="both", expand=True, padx=12, pady=12)
-
-        # Header with GameSphere logo and title
-        header = self._frame(main)
-        header.pack(fill="x", pady=(0, 12))
-        try:
-            logo_path = _assets_path("gamesphere_logo.png")
-            if os.path.exists(logo_path):
-                from tkinter import PhotoImage
-                logo_img = PhotoImage(file=logo_path)
-                logo_small = logo_img.subsample(21, 21)
-                self._header_logo = logo_small
-                bg = "#1c1c1e" if HAS_CTK else (header.cget("bg") if getattr(header, "cget", None) else "#1c1c1e")
-                logo_label = tk.Label(header, image=logo_small, bg=bg)
-                logo_label.pack(side="left", padx=(0, 10))
-        except Exception:
-            pass
-        self._label(header, text="GameSphere Import Tool", font=("", 18, "bold")).pack(side="left", anchor="w")
 
         # Config section
         config_frame = self._frame(main)
@@ -525,7 +480,7 @@ class SunshineGUI:
 
 
 def main():
-    _request_admin_and_rerun()  # On Windows, re-launch as admin so we can write to Program Files
+    _request_admin_and_rerun()
     if sys.platform != "win32":
         print("This GUI is intended for Windows. On other platforms use: python main.py")
         # Still allow running for testing on Mac
