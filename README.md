@@ -1,6 +1,6 @@
 # Gamesphere Import Tool
 
-**Gamesphere Import Tool** imports your installed Steam games into [Sunshine](https://github.com/LizardByte/Sunshine) or [Apollo](https://github.com/ClassicOldSong/Apollo) (game streaming hosts), with grid artwork from SteamGridDB.
+**Gamesphere Import Tool** imports your installed Steam games into [Sunshine](https://github.com/LizardByte/Sunshine) or [Apollo](https://github.com/ClassicOldSong/Apollo) (game streaming hosts), with grid artwork. **No signup for thumbnails:** art is fetched from Steam’s CDN by default (same approach as the [GameSphere](https://github.com/trevlars/GameSphere) client). An optional SteamGridDB API key can be used for community picks.
 
 > This project is a fork of [Sunshine-App-Automation](https://github.com/CommonMugger/Sunshine-App-Automation) by CommonMugger, with a Windows GUI, Apollo support, and other improvements. 
 
@@ -10,13 +10,14 @@ Example:
 ## Features
 
 - **Automatically detects installed Steam games** with concurrent processing for speed
-- **Fetches game names and grid images** from SteamGridDB with retry logic
+- **Fetches game names and grid images** — Steam CDN by default (no API key); optional SteamGridDB for community art
 - **Updates Sunshine/Apollo apps.json** with Steam games and their grid images
 - **Cross-platform support** for Windows, Linux, and macOS
 - **Robust error handling** with comprehensive logging
 - **Command-line options** for verbose output, dry runs, and more
 - **Environment-based configuration** using .env files
 - **Automatic backup** of configuration files before changes
+- **Standalone Windows .exe** — build once, share with users who don’t have Python
 
 ## Prerequisites
 
@@ -25,7 +26,7 @@ Before you begin, ensure you have met the following requirements:
 - **Python 3.12 or higher** installed
 - **uv package manager** (recommended) or pip
 - **Sunshine** or **Apollo** installed and configured
-- **A SteamGridDB API key** (get one from [SteamGridDB](https://www.steamgriddb.com/profile/preferences/api))
+- **(Optional)** A [SteamGridDB](https://www.steamgriddb.com/profile/preferences/api) API key for community grid art; if omitted, thumbnails use Steam’s CDN with no signup
 
 ## Installation
 
@@ -67,10 +68,27 @@ On Windows you can use the **Gamesphere Import Tool** GUI instead of the command
 2. Run the GUI:  
    `python gui.py` or `uv run gui.py`
 3. Choose **Sunshine** or **Apollo** as the streaming host (default paths update automatically).
-4. Fill in the paths and your SteamGridDB API key; use **Browse** to pick files/folders.
+4. Fill in the paths (SteamGridDB API key is optional — leave blank to use Steam CDN thumbnails); use **Browse** to pick files/folders.
 5. Use **Save config** to write a `.env` file, then **Run importer** to run the automation. Log output appears in the window.
 
 The GUI uses the same `.env` as the CLI, so you can switch between GUI and command line.
+
+### Standalone Windows .exe
+
+You can build a single **.exe** so others can run the tool without installing Python:
+
+1. **On a Windows machine**, install the build optional dependency:
+   ```bash
+   uv sync --optional build
+   # or: pip install pyinstaller
+   ```
+2. Build the executable:
+   ```bash
+   uv run build_exe.py
+   # or: pyinstaller GamesphereImportTool.spec
+   ```
+3. The executable is created at `dist/GamesphereImportTool.exe`. Copy it (and optionally a `.env` or `.env.example`) to share.
+4. **End users:** Put the `.exe` in a folder, run it, set paths in the GUI (API key optional), save config, then click **Run importer**. No Python installation required.
 
 ## Configuration
 
@@ -81,7 +99,9 @@ The script now uses environment variables for configuration. Create a `.env` fil
 STEAM_LIBRARY_VDF_PATH=C:/Program Files (x86)/Steam/steamapps/libraryfolders.vdf
 SUNSHINE_APPS_JSON_PATH=C:/Program Files/Sunshine/config/apps.json
 SUNSHINE_GRIDS_FOLDER=C:/Sunshine_Grids
-STEAMGRIDDB_API_KEY=your_api_key_here
+
+# Optional: SteamGridDB API key for community grid art; leave empty to use Steam CDN (no signup)
+STEAMGRIDDB_API_KEY=
 
 # Optional variables (for Windows process restart)
 STEAM_EXE_PATH=C:/Program Files (x86)/Steam/steam.exe
@@ -137,7 +157,7 @@ uv run main.py --verbose --dry-run
 
 1. **Validates configuration** and checks all required paths
 2. **Loads Steam library** and discovers installed games (concurrent processing)
-3. **Downloads grid images** from SteamGridDB (with retry logic)
+3. **Downloads grid images** from Steam CDN (or SteamGridDB if API key is set)
 4. **Updates Sunshine/Apollo configuration** with new games and removes uninstalled ones
 5. **Creates backups** of your configuration before making changes
 6. **Provides detailed logging** of all operations
@@ -198,5 +218,5 @@ Contributions to improve the script are welcome. Please feel free to submit a Pu
 
 - [CommonMugger/Sunshine-App-Automation](https://github.com/CommonMugger/Sunshine-App-Automation) — original project this fork is based on
 - [Sunshine](https://github.com/LizardByte/Sunshine) and [Apollo](https://github.com/ClassicOldSong/Apollo) — game streaming hosts
-- [SteamGridDB](https://www.steamgriddb.com/) for grid images
+- [Steam CDN](https://partner.steamgames.com/doc/store/assets/libraryassets) and optional [SteamGridDB](https://www.steamgriddb.com/) for grid images
 - [uv](https://github.com/astral-sh/uv) for fast Python package management

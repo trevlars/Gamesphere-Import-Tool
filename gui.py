@@ -25,7 +25,7 @@ ENV_KEYS = {
     "steam_library_vdf_path": "Steam library VDF path",
     "sunshine_apps_json_path": "Apps.json path",
     "sunshine_grids_folder": "Grids folder",
-    "steamgriddb_api_key": "SteamGridDB API key",
+    "steamgriddb_api_key": "SteamGridDB API key (optional; uses Steam CDN if empty)",
     "STEAM_EXE_PATH": "Steam executable (optional)",
     "SUNSHINE_EXE_PATH": "Host executable (optional)",
 }
@@ -54,10 +54,16 @@ HOST_DEFAULTS = {
 DEFAULTS = HOST_DEFAULTS["sunshine"]
 
 
+def _base_dir():
+    """Base directory for .env and main.py (script dir, or exe dir when frozen)."""
+    if getattr(sys, "frozen", False):
+        return os.path.dirname(sys.executable)
+    return os.path.dirname(os.path.abspath(__file__))
+
+
 def get_dotenv_path():
-    """Path to .env in the same directory as this script."""
-    base = os.path.dirname(os.path.abspath(__file__))
-    return os.path.join(base, ".env")
+    """Path to .env in the same directory as this script (or the .exe when frozen)."""
+    return os.path.join(_base_dir(), ".env")
 
 
 def load_env_from_file():
@@ -107,9 +113,56 @@ def save_env_to_file(values, host="sunshine"):
         f.write("\n".join(lines) + "\n")
 
 
+def _run_importer_in_process(env_vars, dry_run, verbose, no_restart, log_queue):
+    """Run the importer in-process (used when frozen as .exe). Captures stdout to log_queue."""
+    class QueueWriter:
+        def __init__(self, q):
+            self._q = q
+        def write(self, s):
+            if s:
+                self._q.put(("out", s))
+        def flush(self):
+            pass
+
+    base_dir = _base_dir()
+    old_cwd = os.getcwd()
+    old_stdout, old_stderr = sys.stdout, sys.stderr
+    out = QueueWriter(log_queue)
+    sys.stdout, sys.stderr = out, out
+    try:
+        os.chdir(base_dir)
+        for k, v in env_vars.items():
+            if v:
+                os.environ[k] = str(v)
+        sys.argv = ["main.py"]
+        if dry_run:
+            sys.argv.append("--dry-run")
+        if verbose:
+            sys.argv.append("--verbose")
+        if no_restart:
+            sys.argv.append("--no-restart")
+        import main as main_mod
+        main_mod.main()
+    except SystemExit as e:
+        if e.code and e.code != 0:
+            log_queue.put(("err", f"\nExited with code {e.code}\n"))
+    except Exception as e:
+        log_queue.put(("err", str(e) + "\n"))
+    finally:
+        sys.stdout, sys.stderr = old_stdout, old_stderr
+        os.chdir(old_cwd)
+    log_queue.put(("done",))
+
+
 def run_automation(env_vars, dry_run, verbose, no_restart, log_queue):
-    """Run main.py in a subprocess and push lines to log_queue. Puts ("done",) when finished."""
-    base_dir = os.path.dirname(os.path.abspath(__file__))
+    """Run main.py in a subprocess (or in-process when frozen) and push lines to log_queue. Puts ("done",) when finished."""
+    base_dir = _base_dir()
+    is_frozen = getattr(sys, "frozen", False)
+
+    if is_frozen:
+        _run_importer_in_process(env_vars, dry_run, verbose, no_restart, log_queue)
+        return
+
     main_py = os.path.join(base_dir, "main.py")
     if not os.path.exists(main_py):
         log_queue.put(("err", "main.py not found.\n"))
@@ -307,11 +360,11 @@ class SunshineGUI:
         if self.running:
             return
         values = self._get_values()
+        # SteamGridDB API key is optional; thumbnails use Steam CDN when not set
         required = [
             "steam_library_vdf_path",
             "sunshine_apps_json_path",
             "sunshine_grids_folder",
-            "steamgriddb_api_key",
         ]
         missing = [k for k in required if not values.get(k)]
         if missing:

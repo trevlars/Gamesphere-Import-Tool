@@ -1,0 +1,75 @@
+Gamesphere Import Tool — Windows commands
+=========================================
+
+Run from the repo folder in PowerShell or Command Prompt:
+  cd path\to\Sunshine-App-Automation
+
+-----------------------------------------
+1. INSTALL DEPENDENCIES (one-time)
+-----------------------------------------
+
+Using uv (recommended):
+  uv sync
+
+Using pip:
+  pip install -r requirements.txt
+
+(If you don't have uv, install it first:)
+  powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
+
+-----------------------------------------
+2. RUN THE GUI
+-----------------------------------------
+
+  uv run gui.py
+
+  or
+
+  python gui.py
+
+-----------------------------------------
+3. RUN THE CLI (no GUI)
+-----------------------------------------
+
+  uv run main.py
+
+  or
+
+  python main.py
+
+-----------------------------------------
+4. TEST WITHOUT MAKING CHANGES (dry run)
+-----------------------------------------
+
+  uv run main.py --dry-run
+
+  or
+
+  python main.py --dry-run
+
+Or in the GUI: check "Dry run (preview only)", then click Run importer.
+
+-----------------------------------------
+5. BUILD THE .EXE (standalone app)
+-----------------------------------------
+
+  uv sync --optional build
+  uv run build_exe.py
+
+  or with pip:
+
+  pip install pyinstaller
+  pyinstaller GamesphereImportTool.spec
+
+Output:  dist\GamesphereImportTool.exe
+
+-----------------------------------------
+6. RUN THE BUILT .EXE
+-----------------------------------------
+
+  dist\GamesphereImportTool.exe
+
+No Python required. Copy the .exe (and optionally .env) to share.
+
+=========================================
+Requires Python 3.12+ for running from source.

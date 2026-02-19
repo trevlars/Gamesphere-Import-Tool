@@ -56,23 +56,27 @@ def validate_config() -> Dict[str, str]:
         'steam_library_vdf_path': 'Steam library VDF file path',
         'sunshine_apps_json_path': 'Sunshine apps.json file path',
         'sunshine_grids_folder': 'Sunshine grids folder path',
-        'steamgriddb_api_key': 'SteamGridDB API key'
     }
-    
+    # Optional: SteamGridDB API key; if missing, thumbnails use Steam CDN (no signup)
+    optional_vars = {'steamgriddb_api_key': 'SteamGridDB API key'}
+
     config = {}
     missing_vars = []
-    
+
     for var, description in required_vars.items():
         value = os.getenv(var)
         if not value:
             missing_vars.append(f"{var} ({description})")
         else:
-            # Normalize paths for file/folder variables
             if 'PATH' in var or 'FOLDER' in var:
                 value = normalize_path(value)
                 logging.debug(f"Normalized {var}: {value}")
+        config[var] = value or ''
+        config[var.upper()] = value or ''
+
+    for var, description in optional_vars.items():
+        value = os.getenv(var) or ''
         config[var] = value
-        # Also set uppercase key for later use (e.g. STEAM_LIBRARY_VDF_PATH)
         config[var.upper()] = value
     
     # Optional variables with defaults
@@ -262,6 +266,53 @@ def fetch_grid_from_steamgriddb(app_id: str, api_key: str, grids_folder: str) ->
     logging.error(f"Failed to fetch grid for AppID {app_id} after 3 attempts")
     return None
 
+
+# Steam CDN URLs (no API key, no signup) - same style used by many clients e.g. GameSphere
+STEAM_CDN_HEADER_URL = "https://cdn.cloudflare.steamstatic.com/steam/apps/{app_id}/header.jpg"
+
+
+def fetch_grid_from_steam_cdn(app_id: str, grids_folder: str) -> Optional[str]:
+    """Fetch game grid image from Steam's public CDN. No API key or signup required."""
+    url = STEAM_CDN_HEADER_URL.format(app_id=app_id)
+    for attempt in range(3):
+        try:
+            response = requests.get(url, timeout=15)
+            response.raise_for_status()
+            if len(response.content) < 500:
+                logging.warning(f"Steam CDN returned tiny/no image for AppID {app_id}")
+                return None
+            try:
+                image = Image.open(io.BytesIO(response.content))
+                image.verify()
+                image = Image.open(io.BytesIO(response.content))
+                grid_path = os.path.join(grids_folder, f"{app_id}.png")
+                os.makedirs(grids_folder, exist_ok=True)
+                image.save(grid_path, "PNG")
+                logging.debug(f"Downloaded grid from Steam CDN for AppID {app_id}: {grid_path}")
+                return grid_path
+            except Exception as img_error:
+                logging.warning(f"Invalid image data for AppID {app_id}: {img_error}")
+                return None
+        except requests.exceptions.Timeout:
+            logging.warning(f"Timeout fetching Steam CDN grid for AppID {app_id} (attempt {attempt + 1}/3)")
+        except requests.exceptions.RequestException as e:
+            logging.warning(f"Request error for AppID {app_id} (attempt {attempt + 1}/3): {e}")
+            return None
+        if attempt < 2:
+            time.sleep(2 ** attempt)
+    return None
+
+
+def fetch_grid(app_id: str, api_key: str, grids_folder: str) -> Optional[str]:
+    """Fetch grid image: SteamGridDB if API key set (with Steam CDN fallback), else Steam CDN only."""
+    if api_key and api_key.strip():
+        path = fetch_grid_from_steamgriddb(app_id, api_key.strip(), grids_folder)
+        if path:
+            return path
+        logging.debug(f"SteamGridDB failed for {app_id}, trying Steam CDN")
+    return fetch_grid_from_steam_cdn(app_id, grids_folder)
+
+
 def get_sunshine_config(path: str) -> Dict:
     """Load Sunshine configuration with error handling."""
     try:
@@ -410,7 +461,7 @@ def add_new_games(new_games: Set[str], installed_games: Dict[str, str], api_key:
         future_to_app_id = {}
         
         for app_id in new_games:
-            future = executor.submit(fetch_grid_from_steamgriddb, app_id, api_key, grids_folder)
+            future = executor.submit(fetch_grid, app_id, api_key or '', grids_folder)
             future_to_app_id[future] = app_id
         
         processed = 0
