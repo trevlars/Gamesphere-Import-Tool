@@ -55,7 +55,7 @@ def validate_config() -> Dict[str, str]:
     required_vars = {
         'steam_library_vdf_path': 'Steam library VDF file path',
         'sunshine_apps_json_path': 'Sunshine apps.json file path',
-        'sunshine_grids_folder': 'Sunshine grids folder path',
+        'sunshine_grids_folder': 'Sunshine thumbnails folder path',
     }
     # Optional: SteamGridDB API key; if missing, thumbnails use Steam CDN (no signup)
     optional_vars = {'steamgriddb_api_key': 'SteamGridDB API key'}
@@ -346,23 +346,54 @@ def get_sunshine_config(path: str) -> Dict:
 
 def save_sunshine_config(path: str, config: Dict) -> None:
     """Save Sunshine configuration with backup and error handling."""
+    import shutil
+    backup_path = f"{path}.backup"
+    config_dir = os.path.dirname(path)
+
     try:
-        # Create backup if file exists
+        # Create backup if file exists (use fallback dir if Program Files is read-only)
         if os.path.exists(path):
-            backup_path = f"{path}.backup"
-            import shutil
-            shutil.copy2(path, backup_path)
-            logging.debug(f"Created backup: {backup_path}")
-        
+            try:
+                shutil.copy2(path, backup_path)
+                logging.debug(f"Created backup: {backup_path}")
+            except OSError as e:
+                if e.errno == 13:  # Permission denied
+                    fallback = os.path.join(os.path.expanduser("~"), "GamesphereImportTool_backups")
+                    os.makedirs(fallback, exist_ok=True)
+                    backup_name = os.path.basename(path) + ".backup"
+                    backup_path = os.path.join(fallback, backup_name)
+                    shutil.copy2(path, backup_path)
+                    logging.info(f"Backup saved to user folder (no write access to config dir): {backup_path}")
+                else:
+                    raise
+
         # Ensure directory exists
-        os.makedirs(os.path.dirname(path), exist_ok=True)
-        
+        try:
+            os.makedirs(config_dir, exist_ok=True)
+        except OSError as e:
+            if e.errno == 13:
+                raise PermissionError(
+                    "Cannot write to the config directory (e.g. Program Files). "
+                    "Run this tool as Administrator: right-click the app and choose 'Run as administrator'."
+                ) from e
+            raise
+
         # Write config
-        with open(path, 'w', encoding='utf-8') as file:
-            json.dump(config, file, indent=4, ensure_ascii=False)
-        
+        try:
+            with open(path, 'w', encoding='utf-8') as file:
+                json.dump(config, file, indent=4, ensure_ascii=False)
+        except OSError as e:
+            if e.errno == 13:
+                raise PermissionError(
+                    "Cannot write to the config directory (e.g. Program Files). "
+                    "Run this tool as Administrator: right-click the app and choose 'Run as administrator'."
+                ) from e
+            raise
+
         logging.info(f"Saved Sunshine config with {len(config.get('apps', []))} apps")
-        
+
+    except PermissionError:
+        raise
     except Exception as e:
         logging.error(f"Error saving Sunshine config: {e}")
         raise

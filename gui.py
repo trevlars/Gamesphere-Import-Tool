@@ -23,7 +23,7 @@ except ImportError:
 ENV_KEYS = {
     "steam_library_vdf_path": "Steam library VDF path",
     "sunshine_apps_json_path": "Apps.json path",
-    "sunshine_grids_folder": "Grids folder",
+    "sunshine_grids_folder": "Thumbnails folder",
     "steamgriddb_api_key": "SteamGridDB API key (optional; uses Steam CDN if empty)",
     "STEAM_EXE_PATH": "Steam executable (optional)",
     "SUNSHINE_EXE_PATH": "Host executable (optional)",
@@ -34,7 +34,7 @@ HOST_DEFAULTS = {
     "sunshine": {
         "steam_library_vdf_path": "C:/Program Files (x86)/Steam/steamapps/libraryfolders.vdf",
         "sunshine_apps_json_path": "C:/Program Files/Sunshine/config/apps.json",
-        "sunshine_grids_folder": "C:/Sunshine_Grids",
+        "sunshine_grids_folder": "C:/Sunshine_Thumbnails",
         "steamgriddb_api_key": "",
         "STEAM_EXE_PATH": "C:/Program Files (x86)/Steam/steam.exe",
         "SUNSHINE_EXE_PATH": "C:/Program Files/Sunshine/sunshine.exe",
@@ -42,7 +42,7 @@ HOST_DEFAULTS = {
     "apollo": {
         "steam_library_vdf_path": "C:/Program Files (x86)/Steam/steamapps/libraryfolders.vdf",
         "sunshine_apps_json_path": "C:/Program Files/Apollo/config/apps.json",
-        "sunshine_grids_folder": "C:/Apollo_Grids",
+        "sunshine_grids_folder": "C:/Apollo_Thumbnails",
         "steamgriddb_api_key": "",
         "STEAM_EXE_PATH": "C:/Program Files (x86)/Steam/steam.exe",
         "SUNSHINE_EXE_PATH": "C:/Program Files/Apollo/Apollo.exe",
