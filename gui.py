@@ -218,6 +218,18 @@ def run_automation(env_vars, dry_run, verbose, no_restart, log_queue, remove_gam
     log_queue.put(("done",))
 
 
+# GameSphere accent (red from app icon) — used for buttons, dropdown, checkboxes
+if HAS_CTK:
+    _GS_COLOR = ("#C42E1A", "#8B1A10")
+    _GS_HOVER = ("#A32615", "#6D150C")
+
+
+def _icon_path():
+    """Path to GameSphere logo for window icon (script dir or PyInstaller bundle)."""
+    root = getattr(sys, "_MEIPASS", _base_dir())
+    return os.path.join(root, "assets", "gamesphere_logo.png")
+
+
 class SunshineGUI:
     def __init__(self):
         if HAS_CTK:
@@ -227,6 +239,7 @@ class SunshineGUI:
         self.root.title("GameSphere Import Tool")
         self.root.minsize(640, 520)
         self.root.geometry("720x580")
+        self._set_app_icon()
 
         self.entries = {}
         self.host_var = None
@@ -243,6 +256,17 @@ class SunshineGUI:
         self._build_ui()
         self._load_config()
         self._poll_log()
+
+    def _set_app_icon(self):
+        path = _icon_path()
+        if not os.path.exists(path):
+            return
+        try:
+            from tkinter import PhotoImage
+            self._icon_img = PhotoImage(file=path)
+            self.root.iconphoto(True, self._icon_img)
+        except Exception:
+            pass
 
     def _frame(self, parent, **kwargs):
         if HAS_CTK:
@@ -261,11 +285,15 @@ class SunshineGUI:
 
     def _button(self, parent, text, command, **kwargs):
         if HAS_CTK:
+            kwargs.setdefault("fg_color", _GS_COLOR)
+            kwargs.setdefault("hover_color", _GS_HOVER)
             return ctk.CTkButton(parent, text=text, command=command, **kwargs)
         return tk.Button(parent, text=text, command=command, **kwargs)
 
     def _checkbox(self, parent, text, variable, **kwargs):
         if HAS_CTK:
+            kwargs.setdefault("fg_color", _GS_COLOR)
+            kwargs.setdefault("hover_color", _GS_HOVER)
             return ctk.CTkCheckBox(parent, text=text, variable=variable, **kwargs)
         return tk.Checkbutton(parent, text=text, variable=variable, **kwargs)
 
@@ -300,6 +328,9 @@ class SunshineGUI:
                 values=["Sunshine", "Apollo"],
                 command=self._on_host_change,
                 width=200,
+                fg_color=_GS_COLOR,
+                button_color=_GS_HOVER,
+                button_hover_color=_GS_HOVER,
             )
         else:
             self.host_dropdown = tk.OptionMenu(host_row, self.host_var, "Sunshine", "Apollo", command=self._on_host_change)
