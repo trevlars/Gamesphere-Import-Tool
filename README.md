@@ -69,7 +69,7 @@ On Windows you can use the **Gamesphere Import Tool** GUI instead of the command
    `python gui.py` or `uv run gui.py`
 3. Choose **Sunshine** or **Apollo** as the streaming host (default paths update automatically).
 4. Fill in the paths (SteamGridDB API key is optional — leave blank to use Steam CDN thumbnails); use **Browse** to pick files/folders.
-5. Use **Save config** to write a `.env` file, then **Run importer** to run the automation. Log output appears in the window.
+5. Use **Save config** to write a `.env` file, then **Run importer** to run the automation. **Remove all games** clears only Steam games from the host and keeps default apps (Desktop, Steam client, etc.). Log output appears in the window.
 
 The GUI uses the same `.env` as the CLI, so you can switch between GUI and command line.
 
@@ -145,6 +145,9 @@ uv run main.py --verbose
 
 # Preview changes without making them
 uv run main.py --dry-run
+
+# Remove all Steam games from host config (keeps default apps only)
+uv run main.py --remove-games
 
 # Skip starting Steam (if not running) and skip restarting the streaming host
 uv run main.py --no-restart

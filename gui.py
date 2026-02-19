@@ -129,7 +129,7 @@ def save_env_to_file(values, host="sunshine"):
         f.write("\n".join(lines) + "\n")
 
 
-def _run_importer_in_process(env_vars, dry_run, verbose, no_restart, log_queue):
+def _run_importer_in_process(env_vars, dry_run, verbose, no_restart, log_queue, remove_games=False):
     """Run the importer in-process (used when frozen as .exe). Captures stdout to log_queue."""
     class QueueWriter:
         def __init__(self, q):
@@ -151,6 +151,8 @@ def _run_importer_in_process(env_vars, dry_run, verbose, no_restart, log_queue):
             if v:
                 os.environ[k] = str(v)
         sys.argv = ["main.py"]
+        if remove_games:
+            sys.argv.append("--remove-games")
         if dry_run:
             sys.argv.append("--dry-run")
         if verbose:
@@ -170,13 +172,13 @@ def _run_importer_in_process(env_vars, dry_run, verbose, no_restart, log_queue):
     log_queue.put(("done",))
 
 
-def run_automation(env_vars, dry_run, verbose, no_restart, log_queue):
+def run_automation(env_vars, dry_run, verbose, no_restart, log_queue, remove_games=False):
     """Run main.py in a subprocess (or in-process when frozen) and push lines to log_queue. Puts ("done",) when finished."""
     base_dir = _base_dir()
     is_frozen = getattr(sys, "frozen", False)
 
     if is_frozen:
-        _run_importer_in_process(env_vars, dry_run, verbose, no_restart, log_queue)
+        _run_importer_in_process(env_vars, dry_run, verbose, no_restart, log_queue, remove_games)
         return
 
     main_py = os.path.join(base_dir, "main.py")
@@ -189,6 +191,8 @@ def run_automation(env_vars, dry_run, verbose, no_restart, log_queue):
         if v:
             env[k] = v
     cmd = [sys.executable, main_py]
+    if remove_games:
+        cmd.append("--remove-games")
     if dry_run:
         cmd.append("--dry-run")
     if verbose:
@@ -216,15 +220,26 @@ def run_automation(env_vars, dry_run, verbose, no_restart, log_queue):
     log_queue.put(("done",))
 
 
+def _assets_path(*parts):
+    """Path under assets/ (script dir, or PyInstaller extract dir when frozen)."""
+    root = getattr(sys, "_MEIPASS", _base_dir())
+    return os.path.join(root, "assets", *parts)
+
+
 class SunshineGUI:
     def __init__(self):
         if HAS_CTK:
             ctk.set_appearance_mode("dark")
-            ctk.set_default_color_theme("blue")
+            theme_path = _assets_path("gamesphere_theme.json")
+            if os.path.exists(theme_path):
+                ctk.set_default_color_theme(theme_path)
+            else:
+                ctk.set_default_color_theme("blue")
         self.root = ctk.CTk() if HAS_CTK else tk.Tk()
-        self.root.title("Gamesphere Import Tool")
+        self.root.title("GameSphere Import Tool")
         self.root.minsize(640, 520)
         self.root.geometry("720x580")
+        self._set_window_icon()
 
         self.entries = {}
         self.host_var = None
@@ -233,6 +248,7 @@ class SunshineGUI:
         self.verbose_var = None
         self.no_restart_var = None
         self.run_btn = None
+        self.remove_games_btn = None
         self.log_text = None
         self.log_queue = queue.Queue()
         self.running = False
@@ -240,6 +256,18 @@ class SunshineGUI:
         self._build_ui()
         self._load_config()
         self._poll_log()
+
+    def _set_window_icon(self):
+        """Set window icon to GameSphere logo if available."""
+        logo_path = _assets_path("gamesphere_logo.png")
+        if not os.path.exists(logo_path):
+            return
+        try:
+            from tkinter import PhotoImage
+            self._icon_image = PhotoImage(file=logo_path)
+            self.root.iconphoto(True, self._icon_image)
+        except Exception:
+            pass
 
     def _frame(self, parent, **kwargs):
         if HAS_CTK:
@@ -279,6 +307,23 @@ class SunshineGUI:
     def _build_ui(self):
         main = self._frame(self.root)
         main.pack(fill="both", expand=True, padx=12, pady=12)
+
+        # Header with GameSphere logo and title
+        header = self._frame(main)
+        header.pack(fill="x", pady=(0, 12))
+        logo_path = _assets_path("gamesphere_logo.png")
+        if os.path.exists(logo_path):
+            try:
+                from tkinter import PhotoImage
+                logo_img = PhotoImage(file=logo_path)
+                logo_small = logo_img.subsample(21, 21)
+                self._header_logo = logo_small
+                bg = "#1c1c1e" if HAS_CTK else (header["bg"] if hasattr(header, "cget") and header.cget("bg") else "#1c1c1e")
+                logo_label = tk.Label(header, image=logo_small, bg=bg)
+                logo_label.pack(side="left", padx=(0, 10))
+            except Exception:
+                pass
+        self._label(header, text="GameSphere Import Tool", font=("", 18, "bold")).pack(side="left", anchor="w")
 
         # Config section
         config_frame = self._frame(main)
@@ -342,7 +387,9 @@ class SunshineGUI:
         btn_frame.pack(fill="x", pady=8)
         self._button(btn_frame, "Save config", self._save_config).pack(side="left", padx=(0, 8))
         self.run_btn = self._button(btn_frame, "Run importer", self._on_run)
-        self.run_btn.pack(side="left")
+        self.run_btn.pack(side="left", padx=(0, 8))
+        self.remove_games_btn = self._button(btn_frame, "Remove all games", self._on_remove_games)
+        self.remove_games_btn.pack(side="left")
 
         # Log
         self._label(main, text="Log", font=("", 14, "bold")).pack(anchor="w")
@@ -411,6 +458,44 @@ class SunshineGUI:
         )
         thread.start()
 
+    def _on_remove_games(self):
+        """Remove all Steam games from Sunshine/Apollo, keep default apps (Desktop, Steam, etc.)."""
+        if self.running:
+            return
+        values = self._get_values()
+        apps_path = values.get("sunshine_apps_json_path", "").strip()
+        if not apps_path:
+            messagebox.showerror("Missing setting", "Please set the Apps.json path (Sunshine or Apollo config).")
+            return
+        if not messagebox.askyesno(
+            "Remove all games",
+            "Remove all Steam games from the host? Default apps (Desktop, Steam client, etc.) will be kept.\n\nContinue?",
+            icon="warning",
+        ):
+            return
+        save_env_to_file(values, self._get_host())
+        self.running = True
+        self.run_btn.configure(state="disabled")
+        self.remove_games_btn.configure(state="disabled")
+        self.log_text.configure(state="normal")
+        self.log_text.delete("1.0", "end")
+        self.log_text.insert("end", "Removing all Steam games...\n\n")
+        self.log_text.configure(state="disabled")
+        self.log_queue = queue.Queue()
+        thread = threading.Thread(
+            target=run_automation,
+            args=(
+                values,
+                False,
+                self.verbose_var.get(),
+                self.no_restart_var.get(),
+                self.log_queue,
+                True,  # remove_games
+            ),
+            daemon=True,
+        )
+        thread.start()
+
     def _poll_log(self):
         try:
             while True:
@@ -419,6 +504,7 @@ class SunshineGUI:
                     self.running = False
                     try:
                         self.run_btn.configure(state="normal")
+                        self.remove_games_btn.configure(state="normal")
                     except Exception:
                         pass
                     continue

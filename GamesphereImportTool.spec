@@ -19,13 +19,23 @@ hidden_imports = [
     'glob2',
 ]
 
+# Bundle GameSphere theme and logo (used by GUI)
+import os
+_assets = os.path.join(os.path.dirname(os.path.abspath(__file__)), "assets")
+datas_list = []
+if os.path.isdir(_assets):
+    for name in ("gamesphere_theme.json", "gamesphere_logo.png"):
+        p = os.path.join(_assets, name)
+        if os.path.isfile(p):
+            datas_list.append((p, "assets"))
+
 # Optional: onefile=False produces a folder with .exe + dependencies (faster startup, easier antivirus)
 # onefile=True produces a single .exe (simpler to distribute)
 a = Analysis(
     ['gui.py'],
     pathex=[],
     binaries=[],
-    datas=[],
+    datas=datas_list,
     hiddenimports=hidden_imports,
     hookspath=[],
     hooksconfig={},

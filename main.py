@@ -539,12 +539,43 @@ def add_new_games(new_games: Set[str], installed_games: Dict[str, str], api_key:
     
     return new_apps
 
+
+def remove_steam_games_from_config(apps_json_path: str, grids_folder: str) -> int:
+    """
+    Remove all Steam games (steam://rungameid/ entries) from Sunshine/Apollo config.
+    Keeps default apps (Desktop, Steam client, etc.). Deletes their thumbnail images.
+    Returns the number of apps removed.
+    """
+    config = get_sunshine_config(apps_json_path)
+    apps = config.get('apps', [])
+    kept = []
+    removed_count = 0
+    for app in apps:
+        cmd = app.get('cmd') or ''
+        if cmd.strip().startswith('steam://rungameid/'):
+            removed_count += 1
+            grid_path = app.get('image-path')
+            if grid_path and os.path.exists(grid_path):
+                try:
+                    os.remove(grid_path)
+                    logging.debug(f"Removed thumbnail: {grid_path}")
+                except Exception as e:
+                    logging.warning(f"Failed to remove thumbnail {grid_path}: {e}")
+        else:
+            kept.append(app)
+    config['apps'] = kept
+    save_sunshine_config(apps_json_path, config)
+    logging.info(f"Removed {removed_count} Steam game(s). Kept {len(kept)} default app(s).")
+    return removed_count
+
+
 def main() -> None:
     """Main application function."""
     parser = argparse.ArgumentParser(description='Sunshine Steam Game Automation')
     parser.add_argument('--verbose', '-v', action='store_true', help='Enable verbose logging')
     parser.add_argument('--no-restart', action='store_true', help='Skip starting Steam (if not running) and skip restarting Sunshine/Apollo')
     parser.add_argument('--dry-run', action='store_true', help='Show what would be done without making changes')
+    parser.add_argument('--remove-games', action='store_true', help='Remove all Steam games from host config, keep default apps only')
     args = parser.parse_args()
     
     # Setup logging
@@ -554,6 +585,17 @@ def main() -> None:
     try:
         # Load and validate configuration
         config = validate_config()
+        
+        if args.remove_games:
+            removed = remove_steam_games_from_config(
+                config['SUNSHINE_APPS_JSON_PATH'],
+                config['SUNSHINE_GRIDS_FOLDER'],
+            )
+            if not args.no_restart:
+                restart_sunshine(config['SUNSHINE_EXE_PATH'])
+            logging.info("Remove-games completed successfully")
+            return
+        # ----- normal import flow below -----
         
         # Start Steam only if not already running (unless disabled)
         if not args.no_restart:
