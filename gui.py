@@ -230,6 +230,20 @@ def _icon_path():
     return os.path.join(root, "assets", "gamesphere_logo.png")
 
 
+# GameSphere gradient (lighter top -> darker bottom, from app icon)
+_GS_GRADIENT_TOP = "#C42E1A"
+_GS_GRADIENT_BOTTOM = "#8B1A10"
+
+
+def _hex_to_rgb(hex_str):
+    h = hex_str.lstrip("#")
+    return tuple(int(h[i : i + 2], 16) for i in (0, 2, 4))
+
+
+def _rgb_to_hex(r, g, b):
+    return "#{:02x}{:02x}{:02x}".format(int(r), int(g), int(b))
+
+
 class SunshineGUI:
     def __init__(self):
         if HAS_CTK:
@@ -265,6 +279,24 @@ class SunshineGUI:
             from tkinter import PhotoImage
             self._icon_img = PhotoImage(file=path)
             self.root.iconphoto(True, self._icon_img)
+            # Windows taskbar/alt-tab use .ico; create from PNG if we have PIL
+            if sys.platform == "win32":
+                try:
+                    import tempfile
+                    from PIL import Image
+                    img = Image.open(path).convert("RGBA")
+                    ico_path = os.path.join(os.path.dirname(path), "gamesphere_logo.ico")
+                    if not os.path.exists(ico_path):
+                        try:
+                            img.save(ico_path, format="ICO", sizes=[(32, 32), (16, 16)])
+                        except OSError:
+                            fd, ico_path = tempfile.mkstemp(suffix=".ico")
+                            os.close(fd)
+                            img.save(ico_path, format="ICO", sizes=[(32, 32), (16, 16)])
+                    if os.path.exists(ico_path):
+                        self.root.iconbitmap(ico_path)
+                except Exception:
+                    pass
         except Exception:
             pass
 
@@ -307,9 +339,51 @@ class SunshineGUI:
             self.entries[key].delete(0, "end")
             self.entries[key].insert(0, defaults.get(key, ""))
 
+    def _on_canvas_configure(self, event):
+        w, h = event.width, event.height
+        pad = self._main_pad
+        self._gradient_canvas.coords(self._main_win, pad, pad)
+        self._gradient_canvas.itemconfig(self._main_win, width=max(0, w - 2 * pad), height=max(0, h - 2 * pad))
+        self._draw_gradient(w, h)
+
+    def _draw_gradient(self, w, h):
+        if not getattr(self, "_gradient_canvas", None):
+            return
+        c = self._gradient_canvas
+        c.delete("gradient")
+        if w <= 0 or h <= 0:
+            return
+        r1, g1, b1 = _hex_to_rgb(_GS_GRADIENT_TOP)
+        r2, g2, b2 = _hex_to_rgb(_GS_GRADIENT_BOTTOM)
+        steps = max(2, min(80, h // 4))
+        step = h / steps
+        for i in range(steps):
+            t = i / (steps - 1) if steps > 1 else 1
+            r = r1 + (r2 - r1) * t
+            g = g1 + (g2 - g1) * t
+            b = b1 + (b2 - b1) * t
+            color = _rgb_to_hex(r, g, b)
+            y1, y2 = i * step, (i + 1) * step
+            c.create_rectangle(0, y1, w, y2, fill=color, outline="", tags=("gradient",))
+
     def _build_ui(self):
-        main = self._frame(self.root)
-        main.pack(fill="both", expand=True, padx=12, pady=12)
+        # Red gradient background (canvas behind content)
+        self._gradient_canvas = tk.Canvas(
+            self.root,
+            highlightthickness=0,
+            bg=_GS_GRADIENT_BOTTOM,
+        )
+        self._gradient_canvas.pack(fill="both", expand=True)
+        main = self._frame(self._gradient_canvas)
+        if HAS_CTK:
+            main.configure(fg_color="transparent")
+        else:
+            main.configure(bg=_GS_GRADIENT_BOTTOM)
+        pad = 12
+        self._main_win = self._gradient_canvas.create_window(pad, pad, window=main, anchor="nw")
+        self._main_pad = pad
+        main.update_idletasks()
+        self._gradient_canvas.bind("<Configure>", self._on_canvas_configure)
 
         # Config section
         config_frame = self._frame(main)
