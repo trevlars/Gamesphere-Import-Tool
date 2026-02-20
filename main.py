@@ -657,6 +657,45 @@ def load_custom_games(json_path: str) -> List[Dict]:
         return []
 
 
+def _find_exe_in_tree(root_dir: str, exe_name: str) -> Optional[str]:
+    """Search for a file named exe_name anywhere under root_dir (recursive). Prefer paths not in Uninstall/Redist. Returns full path or None."""
+    exe_lower = exe_name.lower()
+    candidates = []
+    skip_parts = ('uninstall', 'redist', 'redistribution', '_redist', 'vc_redist', 'dotnet', 'dxsetup')
+    for dirpath, _dirnames, filenames in os.walk(root_dir):
+        for f in filenames:
+            if f.lower() == exe_lower or (exe_lower.endswith('.exe') and f.lower() == exe_lower):
+                path = os.path.join(dirpath, f)
+                if os.path.isfile(path):
+                    rel = os.path.relpath(dirpath, root_dir).lower()
+                    is_skip = any(part in rel for part in skip_parts)
+                    candidates.append((path, is_skip))
+    # Prefer exe not in uninstall/redist folders
+    for path, is_skip in candidates:
+        if not is_skip:
+            return os.path.normpath(path)
+    return os.path.normpath(candidates[0][0]) if candidates else None
+
+
+def _find_any_exe_in_tree(root_dir: str) -> Optional[Tuple[str, str]]:
+    """Search for any .exe under root_dir (recursive). Skip Uninstall/Redist. Returns (full_path, display_name_from_file) or None."""
+    skip_parts = ('uninstall', 'redist', 'redistribution', '_redist', 'vc_redist', 'dotnet', 'dxsetup')
+    candidates = []
+    for dirpath, _dirnames, filenames in os.walk(root_dir):
+        for f in filenames:
+            if f.lower().endswith('.exe') and not f.lower().startswith('uninstall'):
+                path = os.path.join(dirpath, f)
+                if os.path.isfile(path):
+                    rel = os.path.relpath(dirpath, root_dir).lower()
+                    is_skip = any(part in rel for part in skip_parts)
+                    display = os.path.splitext(f)[0].replace("_", " ").replace("-", " ")
+                    candidates.append((path, display, is_skip))
+    for path, display, is_skip in candidates:
+        if not is_skip:
+            return (os.path.normpath(path), display)
+    return (os.path.normpath(candidates[0][0]), candidates[0][1]) if candidates else None
+
+
 def _parse_microsoft_game_config(config_path: str, game_root: str) -> Optional[Tuple[str, str]]:
     """Parse MicrosoftGame.config; return (display_name, exe_filename) or None. exe_filename is just the name, not path."""
     try:
@@ -715,20 +754,21 @@ def load_installed_xbox_games(folders_str: str) -> Dict[str, Dict]:
                 parsed = _parse_microsoft_game_config(config_path, game_dir)
                 if parsed:
                     display_name, exe_name = parsed
-            if not exe_name:
-                # Fallback: find first .exe in the game root (not in subfolders)
-                for f in os.listdir(game_dir):
-                    if f.lower().endswith(".exe") and not f.lower().startswith("uninstall"):
-                        exe_name = f
-                        if not display_name:
-                            display_name = os.path.splitext(f)[0].replace("_", " ").replace("-", " ")
-                        break
+            if exe_name:
+                # Search recursively for exe_name (e.g. in Binaries/Win64/Game.exe)
+                exe_path = _find_exe_in_tree(game_dir, exe_name)
+            else:
+                # Fallback: search recursively for any .exe under the game folder
+                found = _find_any_exe_in_tree(game_dir)
+                if found:
+                    exe_path, display_from_file = found
+                    if not display_name:
+                        display_name = display_from_file
+                else:
+                    exe_path = None
             if not display_name:
                 display_name = entry
-            if not exe_name:
-                continue
-            exe_path = os.path.join(game_dir, exe_name)
-            if not os.path.isfile(exe_path):
+            if not exe_path or not os.path.isfile(exe_path):
                 continue
             exe_path_norm = os.path.normpath(exe_path)
             installed[exe_path_norm] = {"name": display_name, "cmd": exe_path_norm}

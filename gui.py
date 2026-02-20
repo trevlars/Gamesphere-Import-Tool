@@ -287,8 +287,8 @@ class SunshineGUI:
             ctk.set_default_color_theme("blue")
         self.root = ctk.CTk() if HAS_CTK else tk.Tk()
         self.root.title("GameSphere Import Tool")
-        self.root.minsize(640, 520)
-        self.root.geometry("720x580")
+        self.root.minsize(640, 620)
+        self.root.geometry("760x820")
         self._set_app_icon()
 
         self.entries = {}
@@ -520,12 +520,12 @@ class SunshineGUI:
         self.remove_games_btn = self._button(btn_frame, "Remove all games", self._on_remove_games)
         self.remove_games_btn.pack(side="left")
 
-        # Log
+        # Log (scrollable; gets most of the vertical space)
         self._label(main, text="Log", font=_gs_font(14, "bold")).pack(anchor="w")
         log_frame = self._gradient_frame(main)
         log_frame.pack(fill="both", expand=True, pady=4)
         self.log_text = scrolledtext.ScrolledText(
-            log_frame, wrap="word", height=12, state="disabled",
+            log_frame, wrap="word", height=22, state="disabled",
             font=("Consolas", 14) if sys.platform == "win32" else ("Monaco", 14),
         )
         self.log_text.pack(fill="both", expand=True)
