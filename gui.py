@@ -329,8 +329,12 @@ class SunshineGUI:
         return tk.Frame(parent, **kwargs)
 
     def _gradient_frame(self, parent):
-        """Plain tk Frame with no background so the gradient canvas shows through (CTkFrame 'transparent' adopts canvas bg and blocks gradient)."""
-        return tk.Frame(parent, bg="")
+        """Plain tk Frame; try transparent bg so gradient shows, fallback to valid color if bg='' fails (e.g. Windows)."""
+        try:
+            f = tk.Frame(parent, bg="")
+        except (tk.TclError, Exception):
+            f = tk.Frame(parent, bg=_GS_GRADIENT_BOTTOM)
+        return f
 
     def _label(self, parent, text, **kwargs):
         kwargs.setdefault("font", _gs_font())
@@ -643,8 +647,12 @@ def main():
     if sys.platform != "win32":
         print("This GUI is intended for Windows. On other platforms use: python main.py")
         # Still allow running for testing on Mac
-    app = SunshineGUI()
-    app.run()
+    try:
+        app = SunshineGUI()
+        app.run()
+    except Exception as e:
+        messagebox.showerror("GameSphere Import Tool — Error", f"The application failed to start:\n\n{e}")
+        raise
 
 
 if __name__ == "__main__":
