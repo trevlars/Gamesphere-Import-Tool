@@ -5,6 +5,26 @@ Run from the repo folder in PowerShell or Command Prompt:
   cd path\to\Sunshine-App-Automation
 
 -----------------------------------------
+QUICK COMMANDS (copy-paste)
+-----------------------------------------
+
+Install uv (one-time, if you don't have it):
+  powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
+
+Install dependencies (one-time):
+  uv sync
+
+Run the GUI:
+  uv run gui.py
+
+Build the .exe (install build deps, then build):
+  uv sync --extra build
+  uv run build_exe.py
+
+Run the built .exe:
+  dist\GamesphereImportTool.exe
+
+-----------------------------------------
 1. INSTALL DEPENDENCIES (one-time)
 -----------------------------------------
 
@@ -53,7 +73,7 @@ Or in the GUI: check "Dry run (preview only)", then click Run importer.
 5. BUILD THE .EXE (standalone app)
 -----------------------------------------
 
-  uv sync --optional build
+  uv sync --extra build
   uv run build_exe.py
 
   or with pip:

@@ -2,7 +2,7 @@
 """
 Build a standalone Windows .exe for Gamesphere Import Tool.
 Run on Windows: uv run build_exe.py   or   python build_exe.py
-Requires: uv add --optional build   or   pip install pyinstaller
+Requires: uv sync --extra build   or   pip install pyinstaller
 """
 import subprocess
 import sys
@@ -16,7 +16,7 @@ def main():
         import PyInstaller.__main__
     except ImportError:
         print("PyInstaller not found. Install with:")
-        print("  uv add --optional build")
+        print("  uv sync --extra build")
         print("  or: pip install pyinstaller")
         sys.exit(1)
     PyInstaller.__main__.run([

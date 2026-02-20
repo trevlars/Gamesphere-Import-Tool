@@ -80,7 +80,7 @@ You can build a single **.exe** so others can run the tool without installing Py
 
 1. **On a Windows machine**, install the build optional dependency:
    ```bash
-   uv sync --optional build
+   uv sync --extra build
    # or: pip install pyinstaller
    ```
 2. Build the executable:
@@ -98,7 +98,7 @@ You can ship the .exe via **GitHub Releases** so people can download it without 
 **Option A — Build on Windows, then create the release**
 
 1. On a **Windows** machine, build the .exe (see above):  
-   `uv sync --optional build` then `uv run build_exe.py`
+   `uv sync --extra build` then `uv run build_exe.py`
 2. On GitHub: **Releases** → **Create a new release**.
 3. Choose a **tag** (e.g. `v0.2.0`). Create the tag if it doesn’t exist.
 4. Set **Release title** (e.g. `v0.2.0`) and add **Description** (changelog, usage notes).
