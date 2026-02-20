@@ -329,12 +329,8 @@ class SunshineGUI:
         return tk.Frame(parent, **kwargs)
 
     def _gradient_frame(self, parent):
-        """Plain tk Frame; try transparent bg so gradient shows, fallback to valid color if bg='' fails (e.g. Windows)."""
-        try:
-            f = tk.Frame(parent, bg="")
-        except (tk.TclError, Exception):
-            f = tk.Frame(parent, bg=_GS_GRADIENT_BOTTOM)
-        return f
+        """Plain tk Frame with valid bg (empty string is invalid color on Windows)."""
+        return tk.Frame(parent, bg=_GS_GRADIENT_BOTTOM)
 
     def _label(self, parent, text, **kwargs):
         kwargs.setdefault("font", _gs_font())
