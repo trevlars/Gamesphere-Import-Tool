@@ -5,8 +5,9 @@
 > **Credit — Original Python project**  
 > This project is a fork of **[Sunshine-App-Automation](https://github.com/CommonMugger/Sunshine-App-Automation)** by [CommonMugger](https://github.com/CommonMugger). The original Python automation (Steam detection, config handling, thumbnails, and CLI) was the foundation for this tool. We added a Windows GUI, Apollo support, GameSphere branding, and other improvements. Thank you to CommonMugger for the original work. 
 
-Example: 
-![IMG_0759](https://github.com/user-attachments/assets/365301a4-57d8-4b5e-a9d6-5ba4573af638)
+Example:
+
+![GameSphere Import Tool](assets/readme-screenshot.png)
 
 ## Features
 
