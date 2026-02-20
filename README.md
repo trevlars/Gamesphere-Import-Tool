@@ -1,8 +1,9 @@
-# Gamesphere Import Tool
+# GameSphere Import Tool
 
-**Gamesphere Import Tool** imports your installed Steam games into [Sunshine](https://github.com/LizardByte/Sunshine) or [Apollo](https://github.com/ClassicOldSong/Apollo) (game streaming hosts), with thumbnail artwork. **No signup for thumbnails:** art is fetched from Steam’s CDN by default (same approach as the [GameSphere](https://github.com/trevlars/GameSphere) client). An optional SteamGridDB API key can be used for community picks.
+**GameSphere Import Tool** imports your installed Steam games into [Sunshine](https://github.com/LizardByte/Sunshine) or [Apollo](https://github.com/ClassicOldSong/Apollo) (game streaming hosts), with thumbnail artwork. **No signup for thumbnails:** art is fetched from Steam’s CDN by default (same approach as the [GameSphere](https://github.com/trevlars/GameSphere) client). An optional SteamGridDB API key can be used for community picks.
 
-> This project is a fork of [Sunshine-App-Automation](https://github.com/CommonMugger/Sunshine-App-Automation) by CommonMugger, with a Windows GUI, Apollo support, and other improvements. 
+> **Credit — Original Python project**  
+> This project is a fork of **[Sunshine-App-Automation](https://github.com/CommonMugger/Sunshine-App-Automation)** by [CommonMugger](https://github.com/CommonMugger). The original Python automation (Steam detection, config handling, thumbnails, and CLI) was the foundation for this tool. We added a Windows GUI, Apollo support, GameSphere branding, and other improvements. Thank you to CommonMugger for the original work. 
 
 Example: 
 ![IMG_0759](https://github.com/user-attachments/assets/365301a4-57d8-4b5e-a9d6-5ba4573af638)
@@ -69,7 +70,7 @@ On Windows you can use the **Gamesphere Import Tool** GUI instead of the command
    `python gui.py` or `uv run gui.py`
 3. Choose **Sunshine** or **Apollo** as the streaming host (default paths update automatically).
 4. Fill in the paths (SteamGridDB API key is optional — leave blank to use Steam CDN thumbnails); use **Browse** to pick files/folders.
-5. Use **Save config** to write a `.env` file, then **Run importer** to run the automation. **Remove all games** clears only Steam games from the host and keeps default apps (Desktop, Steam client, etc.). Log output appears in the window.
+5. Use **Save config** to write a `.env` file, then **Run importer** to run the automation. **Remove all games** wipes all apps from the host (fresh `apps.json`), including manually added ones. Log output appears in the window.
 
 The GUI uses the same `.env` as the CLI, so you can switch between GUI and command line.
 
@@ -146,7 +147,7 @@ uv run main.py --verbose
 # Preview changes without making them
 uv run main.py --dry-run
 
-# Remove all Steam games from host config (keeps default apps only)
+# Remove ALL apps from host config (fresh apps.json, including manually added apps)
 uv run main.py --remove-games
 
 # Skip starting Steam (if not running) and skip restarting the streaming host
@@ -203,11 +204,12 @@ Contributions to improve the script are welcome. Please feel free to submit a Pu
 
 ## Changelog
 
-### Gamesphere Import Tool (this fork)
-- Windows GUI (CustomTkinter) with config form and log output
+### GameSphere Import Tool (this fork)
+- Windows GUI (CustomTkinter) with config form and log output; GameSphere branding and red theme
 - **Sunshine** and **Apollo** support with host selector and default paths
+- **Remove all games** resets `apps.json` fully (all apps removed, including manually added)
 - Host restart works for both Sunshine and Apollo
-- Fork attribution and rebrand as Gamesphere Import Tool
+- Credit to [CommonMugger/Sunshine-App-Automation](https://github.com/CommonMugger/Sunshine-App-Automation) for the original Python automation
 
 ### v2.0 (upstream)
 - Complete rewrite with improved architecture
@@ -219,7 +221,8 @@ Contributions to improve the script are welcome. Please feel free to submit a Pu
 
 ## Acknowledgements
 
-- [CommonMugger/Sunshine-App-Automation](https://github.com/CommonMugger/Sunshine-App-Automation) — original project this fork is based on
+- **[CommonMugger/Sunshine-App-Automation](https://github.com/CommonMugger/Sunshine-App-Automation)** — original Python project this fork is based on. The core automation (Steam library parsing, Sunshine/Apollo config updates, thumbnail handling, and CLI) comes from that repo. Thank you to [CommonMugger](https://github.com/CommonMugger) for the original work.
 - [Sunshine](https://github.com/LizardByte/Sunshine) and [Apollo](https://github.com/ClassicOldSong/Apollo) — game streaming hosts
 - [Steam CDN](https://partner.steamgames.com/doc/store/assets/libraryassets) and optional [SteamGridDB](https://www.steamgriddb.com/) for thumbnail images
+- [GameSphere](https://github.com/trevlars/GameSphere) — TV client that pairs with this importer; GUI styling and branding are inspired by it
 - [uv](https://github.com/astral-sh/uv) for fast Python package management
