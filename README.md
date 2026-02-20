@@ -70,7 +70,7 @@ On Windows you can use the **Gamesphere Import Tool** GUI instead of the command
    `python gui.py` or `uv run gui.py`
 3. Choose **Sunshine** or **Apollo** as the streaming host (default paths update automatically).
 4. Fill in the paths (SteamGridDB API key is optional — leave blank to use Steam CDN thumbnails); use **Browse** to pick files/folders.
-5. Use **Save config** to write a `.env` file, then **Run importer** to run the automation. **Remove all games** removes only Steam game apps from the host; stock apps (Desktop, Steam, Virtual Display) and their thumbnails are kept. Log output appears in the window.
+5. Use **Save config** to write a `.env` file, then **Run importer** to run the automation. **Remove all games** removes all games (Steam + manually added) and keeps only stock apps (Desktop, Steam, Virtual Display) with their thumbnails. Log output appears in the window.
 
 The GUI uses the same `.env` as the CLI, so you can switch between GUI and command line.
 
@@ -147,7 +147,7 @@ uv run main.py --verbose
 # Preview changes without making them
 uv run main.py --dry-run
 
-# Remove only Steam game apps from host config (keeps stock apps and their thumbnails)
+# Remove all games (Steam + manually added); keeps only stock apps (Desktop, Steam, Virtual Display)
 uv run main.py --remove-games
 
 # Skip starting Steam (if not running) and skip restarting the streaming host
@@ -207,7 +207,7 @@ Contributions to improve the script are welcome. Please feel free to submit a Pu
 ### GameSphere Import Tool (this fork)
 - Windows GUI (CustomTkinter) with config form and log output; GameSphere branding and red theme
 - **Sunshine** and **Apollo** support with host selector and default paths
-- **Remove all games** removes only Steam game apps; stock apps (Desktop, Steam, Virtual Display) and their thumbnails are kept
+- **Remove all games** removes all games (Steam + manually added); keeps only stock apps (Desktop, Steam, Virtual Display)
 - Host restart works for both Sunshine and Apollo
 - Credit to [CommonMugger/Sunshine-App-Automation](https://github.com/CommonMugger/Sunshine-App-Automation) for the original Python automation
 

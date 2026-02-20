@@ -540,22 +540,26 @@ def add_new_games(new_games: Set[str], installed_games: Dict[str, str], api_key:
     return new_apps
 
 
+# Stock app names that ship with Sunshine/Apollo; only these are kept when removing all games.
+STOCK_APP_NAMES = frozenset({"Desktop", "Steam", "Virtual Display"})
+
+
 def remove_all_apps_from_config(apps_json_path: str, grids_folder: str, host: str = "sunshine") -> int:
     """
-    Remove only Steam game apps from Sunshine/Apollo config. Keeps stock apps (Desktop, Steam,
-    Virtual Display, etc.) and any manually added non-Steam apps unchanged, including their
-    thumbnails. Deletes only game thumbnails in the grids folder. Returns the number of
-    Steam game apps that were removed.
+    Remove all non-stock apps: Steam games (from this importer) and manually added games.
+    Keeps only stock apps (Desktop, Steam, Virtual Display) as they are in the config,
+    with their stock thumbnails. Removed apps' thumbnails in the grids folder are deleted.
+    Returns the number of apps that were removed.
     """
     config = get_sunshine_config(apps_json_path)
     apps = config.get('apps', [])
-    steam_apps = [a for a in apps if (a.get('cmd') or '').startswith('steam://rungameid/')]
-    kept_apps = [a for a in apps if a not in steam_apps]
-    removed_count = len(steam_apps)
+    kept_apps = [a for a in apps if (a.get('name') or '').strip() in STOCK_APP_NAMES]
+    removed_apps = [a for a in apps if a not in kept_apps]
+    removed_count = len(removed_apps)
 
-    # Delete only thumbnails for removed Steam games that live in our grids folder
+    # Delete thumbnails for removed apps when they live in our grids folder (don't touch stock paths)
     grids_folder_abs = os.path.abspath(grids_folder) if grids_folder else ""
-    for app in steam_apps:
+    for app in removed_apps:
         grid_path = app.get('image-path')
         if grid_path and os.path.exists(grid_path):
             if grids_folder_abs and os.path.abspath(os.path.dirname(grid_path)) == grids_folder_abs:
@@ -565,7 +569,7 @@ def remove_all_apps_from_config(apps_json_path: str, grids_folder: str, host: st
                 except Exception as e:
                     logging.warning(f"Failed to remove grid image {grid_path}: {e}")
 
-    # Remove any other PNGs in the grids folder (orphaned game thumbnails we added)
+    # Remove any other PNGs in the grids folder (orphaned thumbnails)
     if os.path.isdir(grids_folder):
         try:
             for name in os.listdir(grids_folder):
@@ -579,11 +583,10 @@ def remove_all_apps_from_config(apps_json_path: str, grids_folder: str, host: st
         except OSError as e:
             logging.warning(f"Could not list grids folder {grids_folder}: {e}")
 
-    # Keep stock and manual apps; only remove Steam game entries
     config['apps'] = kept_apps
     save_sunshine_config(apps_json_path, config)
     kept_names = [a.get('name', '') for a in kept_apps]
-    logging.info(f"Removed {removed_count} Steam game(s). Kept stock/manual apps: {kept_names}.")
+    logging.info(f"Removed {removed_count} app(s). Kept stock apps: {kept_names}.")
     return removed_count
 
 
@@ -593,7 +596,7 @@ def main() -> None:
     parser.add_argument('--verbose', '-v', action='store_true', help='Enable verbose logging')
     parser.add_argument('--no-restart', action='store_true', help='Skip starting Steam (if not running) and skip restarting Sunshine/Apollo')
     parser.add_argument('--dry-run', action='store_true', help='Show what would be done without making changes')
-    parser.add_argument('--remove-games', action='store_true', help='Remove only Steam game apps from host config; keep stock apps (Desktop, Steam, etc.) and their thumbnails')
+    parser.add_argument('--remove-games', action='store_true', help='Remove all games (Steam + manually added); keep only stock apps Desktop, Steam, Virtual Display')
     args = parser.parse_args()
     
     # Setup logging
