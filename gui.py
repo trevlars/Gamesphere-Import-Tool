@@ -42,6 +42,10 @@ ENV_KEYS = {
     "steamgriddb_api_key": "SteamGridDB API key (optional; uses Steam CDN if empty)",
     "STEAM_EXE_PATH": "Steam executable (optional)",
     "SUNSHINE_EXE_PATH": "Host executable (optional)",
+    "EPIC_MANIFESTS_PATH": "Epic Games manifests folder (optional)",
+    "CUSTOM_GAMES_JSON_PATH": "Custom games JSON path (optional)",
+    "XBOX_GAMES_FOLDERS": "Xbox/Windows games folder(s) (optional)",
+    "SUNSHINE_SHORTCUTS_FOLDER": "Shortcuts folder (optional)",
 }
 
 # Default Windows paths per streaming host (main.py uses same env var names for both)
@@ -53,6 +57,10 @@ HOST_DEFAULTS = {
         "steamgriddb_api_key": "",
         "STEAM_EXE_PATH": "C:/Program Files (x86)/Steam/steam.exe",
         "SUNSHINE_EXE_PATH": "C:/Program Files/Sunshine/sunshine.exe",
+        "EPIC_MANIFESTS_PATH": "C:/ProgramData/Epic/EpicGamesLauncher/Data/Manifests",
+        "CUSTOM_GAMES_JSON_PATH": "",
+        "XBOX_GAMES_FOLDERS": "C:/XboxGames",
+        "SUNSHINE_SHORTCUTS_FOLDER": "",
     },
     "apollo": {
         "steam_library_vdf_path": "C:/Program Files (x86)/Steam/steamapps/libraryfolders.vdf",
@@ -61,6 +69,10 @@ HOST_DEFAULTS = {
         "steamgriddb_api_key": "",
         "STEAM_EXE_PATH": "C:/Program Files (x86)/Steam/steam.exe",
         "SUNSHINE_EXE_PATH": "C:/Program Files/Apollo/sunshine.exe",
+        "EPIC_MANIFESTS_PATH": "C:/ProgramData/Epic/EpicGamesLauncher/Data/Manifests",
+        "CUSTOM_GAMES_JSON_PATH": "",
+        "XBOX_GAMES_FOLDERS": "C:/XboxGames",
+        "SUNSHINE_SHORTCUTS_FOLDER": "",
     },
 }
 

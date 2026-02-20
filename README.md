@@ -12,8 +12,11 @@ Example:
 ## Features
 
 - **Automatically detects installed Steam games** with concurrent processing for speed
+- **Epic Games Store** — detects installed Epic games (Windows) and adds them with launch commands and optional thumbnails (SteamGridDB search by name)
+- **Xbox / Windows games** — auto-discovers games in the usual Xbox install folder (`C:\XboxGames` by default; Game Pass, Minecraft, etc.) using `MicrosoftGame.config` or by scanning for executables
+- **Custom games** — add any game by path via a JSON file (e.g. games not in `C:\XboxGames`); thumbnails from SteamGridDB by name when available
 - **Fetches game names and thumbnail images** — Steam CDN by default (no API key); optional SteamGridDB for community art
-- **Updates Sunshine/Apollo apps.json** with Steam games and their thumbnail images
+- **Updates Sunshine/Apollo apps.json** with Steam, Epic, and custom games and their thumbnail images
 - **Cross-platform support** for Windows, Linux, and macOS
 - **Robust error handling** with comprehensive logging
 - **Command-line options** for verbose output, dry runs, and more
@@ -136,6 +139,18 @@ STEAMGRIDDB_API_KEY=
 # Optional variables (for Windows process restart)
 STEAM_EXE_PATH=C:/Program Files (x86)/Steam/steam.exe
 SUNSHINE_EXE_PATH=C:/Program Files/Sunshine/sunshine.exe
+
+# Optional: Epic Games Store (Windows). Defaults to C:/ProgramData/Epic/EpicGamesLauncher/Data/Manifests if empty
+EPIC_MANIFESTS_PATH=
+
+# Optional: path to a JSON file listing custom games. See custom_games.example.json
+CUSTOM_GAMES_JSON_PATH=
+
+# Optional: Xbox/Windows games root folder(s), comma-separated (e.g. C:/XboxGames,D:/XboxGames). Default on Windows: C:/XboxGames
+XBOX_GAMES_FOLDERS=
+
+# Optional: folder for auto-generated .lnk shortcuts (Windows). If set, Epic/Xbox/custom games use shortcuts here and Sunshine launches via them (can help with permissions).
+SUNSHINE_SHORTCUTS_FOLDER=
 ```
 
 ### Path Examples by Platform:
@@ -190,10 +205,28 @@ uv run main.py --verbose --dry-run
 
 1. **Validates configuration** and checks all required paths
 2. **Loads Steam library** and discovers installed games (concurrent processing)
-3. **Downloads thumbnail images** from Steam CDN (or SteamGridDB if API key is set)
-4. **Updates Sunshine/Apollo configuration** with new games and removes uninstalled ones
-5. **Creates backups** of your configuration before making changes
-6. **Provides detailed logging** of all operations
+3. **Loads Epic Games** (Windows) from the manifests folder if configured
+4. **Discovers Xbox/Windows games** in `XBOX_GAMES_FOLDERS` (e.g. `C:\XboxGames`) if set
+5. **Loads custom games** from your JSON file if `CUSTOM_GAMES_JSON_PATH` is set
+6. **Downloads thumbnail images** from Steam CDN (or SteamGridDB if API key is set); Epic/Xbox/custom use SteamGridDB search by name when available
+7. **Updates Sunshine/Apollo configuration** with new games and removes uninstalled ones (Steam/Epic); Xbox and custom games stay until removed from folder/JSON or you use Remove all games
+8. **Creates backups** of your configuration before making changes
+9. **Provides detailed logging** of all operations
+
+### Xbox / Windows games (Game Pass, Minecraft, etc.)
+
+Games installed via the Xbox app are usually in **C:\XboxGames**. Set `XBOX_GAMES_FOLDERS` to that path (or leave it blank on Windows to use the default). You can use multiple folders separated by commas (e.g. `C:/XboxGames,D:/XboxGames`). The tool discovers each game from `MicrosoftGame.config` when present, or by finding executables in each subfolder.
+
+### Custom games (games not in Steam, Epic, or C:\XboxGames)
+
+1. Copy `custom_games.example.json` to `custom_games.json` (or any path).
+2. Edit the `games` array: each entry needs `name` and `cmd` (full path to the game executable). `image_path` is optional (leave empty to try SteamGridDB by name).
+3. Set `CUSTOM_GAMES_JSON_PATH` in your `.env` to the path of your JSON file.
+4. Run the importer. Custom games are added and stay until you remove them from the JSON or use **Remove all games**.
+
+### Shortcuts folder (optional, Windows)
+
+If you set `SUNSHINE_SHORTCUTS_FOLDER` (e.g. `C:/Sunshine_Shortcuts`), the tool will create **.lnk shortcut files** there for each Epic, Xbox, and custom game. Sunshine/Apollo will then launch games by running those shortcuts (via `cmd /c start "" "path\to\shortcut.lnk"`), which can help when the game exe is in a protected location or you want all launchables in one folder. The shortcuts folder is created automatically; **Remove all games** also deletes all `.lnk` files in it.
 
 ## Troubleshooting
 

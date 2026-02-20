@@ -1,0 +1,14 @@
+{
+  "games": [
+    {
+      "name": "Minecraft for Windows",
+      "cmd": "C:\\Path\\To\\Minecraft.Windows.exe",
+      "image_path": ""
+    },
+    {
+      "name": "My Custom Game",
+      "cmd": "C:\\Games\\MyGame\\game.exe",
+      "image_path": ""
+    }
+  ]
+}
