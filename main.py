@@ -657,14 +657,22 @@ def load_custom_games(json_path: str) -> List[Dict]:
         return []
 
 
+# Exe filenames (or name substrings) to never use as the main game launcher (e.g. Minecraft GameLaunchHelper)
+XBOX_SKIP_EXE_NAMES = ('gamelaunchhelper',)
+
+
 def _find_exe_in_tree(root_dir: str, exe_name: str) -> Optional[str]:
     """Search for a file named exe_name anywhere under root_dir (recursive). Prefer paths not in Uninstall/Redist. Returns full path or None."""
     exe_lower = exe_name.lower()
+    if any(skip in exe_lower for skip in XBOX_SKIP_EXE_NAMES):
+        return None
     candidates = []
     skip_parts = ('uninstall', 'redist', 'redistribution', '_redist', 'vc_redist', 'dotnet', 'dxsetup')
     for dirpath, _dirnames, filenames in os.walk(root_dir):
         for f in filenames:
             if f.lower() == exe_lower or (exe_lower.endswith('.exe') and f.lower() == exe_lower):
+                if any(skip in f.lower() for skip in XBOX_SKIP_EXE_NAMES):
+                    continue
                 path = os.path.join(dirpath, f)
                 if os.path.isfile(path):
                     rel = os.path.relpath(dirpath, root_dir).lower()
@@ -678,12 +686,14 @@ def _find_exe_in_tree(root_dir: str, exe_name: str) -> Optional[str]:
 
 
 def _find_any_exe_in_tree(root_dir: str) -> Optional[Tuple[str, str]]:
-    """Search for any .exe under root_dir (recursive). Skip Uninstall/Redist. Returns (full_path, display_name_from_file) or None."""
+    """Search for any .exe under root_dir (recursive). Skip Uninstall/Redist and helper exes (e.g. GameLaunchHelper). Returns (full_path, display_name_from_file) or None."""
     skip_parts = ('uninstall', 'redist', 'redistribution', '_redist', 'vc_redist', 'dotnet', 'dxsetup')
     candidates = []
     for dirpath, _dirnames, filenames in os.walk(root_dir):
         for f in filenames:
             if f.lower().endswith('.exe') and not f.lower().startswith('uninstall'):
+                if any(skip in f.lower() for skip in XBOX_SKIP_EXE_NAMES):
+                    continue
                 path = os.path.join(dirpath, f)
                 if os.path.isfile(path):
                     rel = os.path.relpath(dirpath, root_dir).lower()
@@ -755,17 +765,17 @@ def load_installed_xbox_games(folders_str: str) -> Dict[str, Dict]:
                 if parsed:
                     display_name, exe_name = parsed
             if exe_name:
-                # Search recursively for exe_name (e.g. in Binaries/Win64/Game.exe)
+                # Search recursively for exe_name (e.g. in Binaries/Win64/Game.exe); skips helpers like GameLaunchHelper
                 exe_path = _find_exe_in_tree(game_dir, exe_name)
             else:
-                # Fallback: search recursively for any .exe under the game folder
+                exe_path = None
+            if not exe_path:
+                # Fallback: search recursively for any .exe (e.g. when config listed only GameLaunchHelper)
                 found = _find_any_exe_in_tree(game_dir)
                 if found:
                     exe_path, display_from_file = found
                     if not display_name:
                         display_name = display_from_file
-                else:
-                    exe_path = None
             if not display_name:
                 display_name = entry
             if not exe_path or not os.path.isfile(exe_path):
