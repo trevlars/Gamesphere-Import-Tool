@@ -630,6 +630,10 @@ class SunshineGUI:
                 self.log_text.insert("end", line)
                 self.log_text.see("end")
                 self.log_text.configure(state="disabled")
+                if line.startswith("BANNER:"):
+                    banner_text = line[7:].strip()
+                    if banner_text:
+                        self.root.after(0, lambda t=banner_text: messagebox.showinfo("GameSphere Import Tool", t))
         except queue.Empty:
             pass
         self.root.after(200, self._poll_log)

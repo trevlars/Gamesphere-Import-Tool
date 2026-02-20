@@ -226,3 +226,11 @@ Contributions to improve the script are welcome. Please feel free to submit a Pu
 - [Steam CDN](https://partner.steamgames.com/doc/store/assets/libraryassets) and optional [SteamGridDB](https://www.steamgriddb.com/) for thumbnail images
 - [GameSphere](https://github.com/trevlars/GameSphere) — TV client that pairs with this importer; GUI styling and branding are inspired by it
 - [uv](https://github.com/astral-sh/uv) for fast Python package management
+
+---
+
+## Legal disclaimer
+
+<sub>*Fine print. This project is provided for convenience only. You are responsible for your own setup and any effects of using this software.*</sub>
+
+**Use at your own risk.** This software is provided **“as is”** without warranty of any kind. The authors and contributors are not liable for any damage to your computer, operating system, games, game saves, Steam or Sunshine/Apollo configuration, or any other software or data arising from the use or misuse of this tool. Back up your configuration and important data before use. This project is not affiliated with, endorsed by, or supported by Valve (Steam), LizardByte (Sunshine), Apollo, SteamGridDB, or any other third-party product or service mentioned here. All trademarks are property of their respective owners.

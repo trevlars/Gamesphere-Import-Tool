@@ -540,11 +540,55 @@ def add_new_games(new_games: Set[str], installed_games: Dict[str, str], api_key:
     return new_apps
 
 
-def remove_all_apps_from_config(apps_json_path: str, grids_folder: str) -> int:
+def get_default_apps(host: str) -> List[Dict]:
+    """
+    Return the default app list for Sunshine or Apollo (Desktop, Steam, and for Apollo also Virtual Display).
+    Used when "Remove all games" resets apps.json so built-in apps are preserved.
+    """
+    host = (host or "sunshine").strip().lower()
+    if host not in ("sunshine", "apollo"):
+        host = "sunshine"
+
+    # Minimal app structure compatible with Sunshine/Apollo apps.json
+    def _app(name: str, cmd: str = "", detached: str = "", prep_do: str = "", prep_undo: str = "") -> Dict:
+        app = {
+            "name": name,
+            "cmd": cmd,
+            "output": "",
+            "detached": detached,
+            "elevated": "false",
+            "hidden": "true",
+            "wait-all": "true",
+            "exit-timeout": "5",
+            "image-path": "",
+        }
+        if prep_do or prep_undo:
+            app["prep-cmd"] = [{"do": prep_do, "undo": prep_undo, "elevated": False}]
+        return app
+
+    # Desktop: stream the desktop
+    desktop = _app("Desktop")
+
+    # Steam (Big Picture): prep close then open; launch via detached so Steam can self-update
+    if os.name == 'nt':
+        steam = _app("Steam", detached="steam://open/bigpicture", prep_do="steam://close/bigpicture", prep_undo="steam://open/bigpicture")
+    elif sys.platform == "darwin":
+        steam = _app("Steam", detached="open steam://open/bigpicture", prep_do="open steam://close/bigpicture", prep_undo="open steam://open/bigpicture")
+    else:
+        steam = _app("Steam", detached="steam steam://open/bigpicture", prep_do="steam steam://close/bigpicture", prep_undo="steam steam://open/bigpicture")
+
+    if host == "apollo":
+        # Apollo includes Virtual Display as a default app
+        virtual_display = _app("Virtual Display")
+        return [desktop, steam, virtual_display]
+    return [desktop, steam]
+
+
+def remove_all_apps_from_config(apps_json_path: str, grids_folder: str, host: str = "sunshine") -> int:
     """
     Remove ALL apps from Sunshine/Apollo config (including manually added ones).
-    Writes a fresh apps.json with empty apps array and removes thumbnail files in the grids folder.
-    Returns the number of apps that were removed.
+    Resets apps to host defaults: Desktop + Steam (Sunshine), or Desktop + Steam + Virtual Display (Apollo).
+    Removes thumbnail files in the grids folder. Returns the number of apps that were removed.
     """
     config = get_sunshine_config(apps_json_path)
     apps = config.get('apps', [])
@@ -574,10 +618,11 @@ def remove_all_apps_from_config(apps_json_path: str, grids_folder: str) -> int:
         except OSError as e:
             logging.warning(f"Could not list grids folder {grids_folder}: {e}")
 
-    # Fresh config: keep top-level keys like 'env', empty apps
-    config['apps'] = []
+    # Reset to host defaults (Desktop, Steam; Apollo also has Virtual Display)
+    default_apps = get_default_apps(host)
+    config['apps'] = default_apps
     save_sunshine_config(apps_json_path, config)
-    logging.info(f"Removed all {removed_count} app(s). apps.json is now fresh (empty apps).")
+    logging.info(f"Removed all {removed_count} app(s). Reset to default apps: {[a['name'] for a in default_apps]}.")
     return removed_count
 
 
@@ -607,10 +652,18 @@ def main() -> None:
             removed = remove_all_apps_from_config(
                 config['SUNSHINE_APPS_JSON_PATH'],
                 config['SUNSHINE_GRIDS_FOLDER'],
+                host=host_name.lower(),
             )
             if not args.no_restart:
                 restart_sunshine(config['SUNSHINE_EXE_PATH'])
             logging.info("Remove-games completed successfully")
+            wasteland_msg = f"Games removed. Your {host_name} is a game barren wasteland where joy and whimsy go to die."
+            print()
+            print("=" * 70)
+            print(f"  {wasteland_msg}")
+            print("=" * 70)
+            print()
+            print(f"BANNER:{wasteland_msg}")
             return
         # ----- normal import flow below -----
         
@@ -660,6 +713,17 @@ def main() -> None:
             restart_sunshine(config['SUNSHINE_EXE_PATH'])
         
         logging.info("Sunshine apps.json update process completed successfully")
+        host_display = os.getenv("HOST", "sunshine").strip()
+        if host_display.lower() not in ("sunshine", "apollo"):
+            host_display = "sunshine"
+        host_display = host_display.capitalize()
+        spherical_msg = f"Your {host_display} is now SPHERICAL!"
+        print()
+        print("=" * 70)
+        print(f"  {spherical_msg}")
+        print("=" * 70)
+        print()
+        print(f"BANNER:{spherical_msg}")
         
     except KeyboardInterrupt:
         logging.info("Process interrupted by user")
