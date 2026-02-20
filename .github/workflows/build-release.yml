@@ -1,0 +1,56 @@
+# Build Windows .exe and attach it to a GitHub Release.
+# Trigger: create a Release (e.g. tag v0.2.0) and publish it. The .exe is built and attached automatically.
+# You can also run manually: Actions → Build Windows exe → Run workflow (choose a branch/tag).
+
+name: Build Windows exe
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to build (e.g. v0.2.0). Leave empty to use default branch.'
+        required: false
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.release.tag_name || github.event.inputs.tag || github.ref }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install uv
+        run: pip install uv
+
+      - name: Install dependencies
+        run: uv sync --optional build
+
+      - name: Build .exe
+        run: uv run build_exe.py
+
+      - name: Upload to Release
+        if: github.event_name == 'release'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/GamesphereImportTool.exe
+          tag_name: ${{ github.event.release.tag_name }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload artifact (manual run)
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/upload-artifact@v4
+        with:
+          name: GamesphereImportTool-exe
+          path: dist/GamesphereImportTool.exe

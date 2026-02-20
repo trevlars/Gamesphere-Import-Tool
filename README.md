@@ -91,6 +91,34 @@ You can build a single **.exe** so others can run the tool without installing Py
 3. The executable is created at `dist/GamesphereImportTool.exe`. Copy it (and optionally a `.env` or `.env.example`) to share.
 4. **End users:** Put the `.exe` in a folder, run it, set paths in the GUI (API key optional), save config, then click **Run importer**. No Python installation required.
 
+### Publishing a release (downloadable .exe on GitHub)
+
+You can ship the .exe via **GitHub Releases** so people can download it without cloning the repo.
+
+**Option A — Build on Windows, then create the release**
+
+1. On a **Windows** machine, build the .exe (see above):  
+   `uv sync --optional build` then `uv run build_exe.py`
+2. On GitHub: **Releases** → **Create a new release**.
+3. Choose a **tag** (e.g. `v0.2.0`). Create the tag if it doesn’t exist.
+4. Set **Release title** (e.g. `v0.2.0`) and add **Description** (changelog, usage notes).
+5. Under **Assets**, click **Attach binaries** and upload `dist/GamesphereImportTool.exe`.
+6. Publish the release. The .exe will be available for download on the release page.
+
+**Option B — Let GitHub Actions build the .exe (no Windows PC needed)**
+
+The repo includes a workflow that builds the .exe and attaches it to the release automatically:
+
+1. Create and push a **tag** (e.g. `v0.2.0`):
+   ```bash
+   git tag v0.2.0
+   git push origin v0.2.0
+   ```
+2. On GitHub: **Releases** → **Draft a new release**.
+3. Choose the tag you pushed (e.g. `v0.2.0`), add title and description, then **Publish release**. Do not upload any files.
+4. The **Build Windows exe** workflow runs on GitHub’s Windows runner. When it finishes, `GamesphereImportTool.exe` is attached to the release automatically. Check **Actions** for build status.
+5. Download the .exe from the release’s **Assets** section.
+
 ## Configuration
 
 The script now uses environment variables for configuration. Create a `.env` file in the project directory:
