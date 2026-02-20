@@ -780,6 +780,8 @@ def load_installed_xbox_games(folders_str: str) -> Dict[str, Dict]:
                 display_name = entry
             if not exe_path or not os.path.isfile(exe_path):
                 continue
+            if os.path.basename(exe_path).lower() == "minecraft.windows.exe":
+                display_name = "Minecraft for Windows"
             exe_path_norm = os.path.normpath(exe_path)
             installed[exe_path_norm] = {"name": display_name, "cmd": exe_path_norm}
     logging.info(f"Found {len(installed)} Xbox/Windows games")
