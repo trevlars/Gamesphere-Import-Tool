@@ -657,8 +657,8 @@ def load_custom_games(json_path: str) -> List[Dict]:
         return []
 
 
-# Exe filenames (or name substrings) to never use as the main game launcher (e.g. Minecraft GameLaunchHelper)
-XBOX_SKIP_EXE_NAMES = ('gamelaunchhelper',)
+# Exe filenames (or name substrings) to never use as the main game launcher (e.g. Minecraft: GameLaunchHelper, Java, launcher)
+XBOX_SKIP_EXE_NAMES = ('gamelaunchhelper', 'java', 'launcher')
 
 
 def _find_exe_in_tree(root_dir: str, exe_name: str) -> Optional[str]:
