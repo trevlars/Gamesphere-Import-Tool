@@ -20,8 +20,13 @@ hidden_imports = [
 ]
 
 # Bundle GameSphere theme and logo (used by GUI)
+# In .spec files __file__ is not set. PyInstaller injects SPEC (path to this .spec file).
 import os
-_assets = os.path.join(os.path.dirname(os.path.abspath(__file__)), "assets")
+try:
+    _spec_dir = os.path.dirname(os.path.abspath(SPEC))
+except NameError:
+    _spec_dir = os.getcwd()
+_assets = os.path.join(_spec_dir, "assets")
 datas_list = []
 if os.path.isdir(_assets):
     for name in ("gamesphere_theme.json", "gamesphere_logo.png"):
