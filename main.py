@@ -540,71 +540,32 @@ def add_new_games(new_games: Set[str], installed_games: Dict[str, str], api_key:
     return new_apps
 
 
-def get_default_apps(host: str) -> List[Dict]:
-    """
-    Return the default app list for Sunshine or Apollo (Desktop, Steam, and for Apollo also Virtual Display).
-    Used when "Remove all games" resets apps.json so built-in apps are preserved.
-    """
-    host = (host or "sunshine").strip().lower()
-    if host not in ("sunshine", "apollo"):
-        host = "sunshine"
-
-    # Minimal app structure compatible with Sunshine/Apollo apps.json
-    def _app(name: str, cmd: str = "", detached: str = "", prep_do: str = "", prep_undo: str = "") -> Dict:
-        app = {
-            "name": name,
-            "cmd": cmd,
-            "output": "",
-            "detached": detached,
-            "elevated": "false",
-            "hidden": "true",
-            "wait-all": "true",
-            "exit-timeout": "5",
-            "image-path": "",
-        }
-        if prep_do or prep_undo:
-            app["prep-cmd"] = [{"do": prep_do, "undo": prep_undo, "elevated": False}]
-        return app
-
-    # Desktop: stream the desktop
-    desktop = _app("Desktop")
-
-    # Steam (Big Picture): prep close then open; launch via detached so Steam can self-update
-    if os.name == 'nt':
-        steam = _app("Steam", detached="steam://open/bigpicture", prep_do="steam://close/bigpicture", prep_undo="steam://open/bigpicture")
-    elif sys.platform == "darwin":
-        steam = _app("Steam", detached="open steam://open/bigpicture", prep_do="open steam://close/bigpicture", prep_undo="open steam://open/bigpicture")
-    else:
-        steam = _app("Steam", detached="steam steam://open/bigpicture", prep_do="steam steam://close/bigpicture", prep_undo="steam steam://open/bigpicture")
-
-    if host == "apollo":
-        # Apollo includes Virtual Display as a default app
-        virtual_display = _app("Virtual Display")
-        return [desktop, steam, virtual_display]
-    return [desktop, steam]
-
-
 def remove_all_apps_from_config(apps_json_path: str, grids_folder: str, host: str = "sunshine") -> int:
     """
-    Remove ALL apps from Sunshine/Apollo config (including manually added ones).
-    Resets apps to host defaults: Desktop + Steam (Sunshine), or Desktop + Steam + Virtual Display (Apollo).
-    Removes thumbnail files in the grids folder. Returns the number of apps that were removed.
+    Remove only Steam game apps from Sunshine/Apollo config. Keeps stock apps (Desktop, Steam,
+    Virtual Display, etc.) and any manually added non-Steam apps unchanged, including their
+    thumbnails. Deletes only game thumbnails in the grids folder. Returns the number of
+    Steam game apps that were removed.
     """
     config = get_sunshine_config(apps_json_path)
     apps = config.get('apps', [])
-    removed_count = len(apps)
+    steam_apps = [a for a in apps if (a.get('cmd') or '').startswith('steam://rungameid/')]
+    kept_apps = [a for a in apps if a not in steam_apps]
+    removed_count = len(steam_apps)
 
-    # Delete thumbnail images referenced by any app
-    for app in apps:
+    # Delete only thumbnails for removed Steam games that live in our grids folder
+    grids_folder_abs = os.path.abspath(grids_folder) if grids_folder else ""
+    for app in steam_apps:
         grid_path = app.get('image-path')
         if grid_path and os.path.exists(grid_path):
-            try:
-                os.remove(grid_path)
-                logging.debug(f"Removed thumbnail: {grid_path}")
-            except Exception as e:
-                logging.warning(f"Failed to remove thumbnail {grid_path}: {e}")
+            if grids_folder_abs and os.path.abspath(os.path.dirname(grid_path)) == grids_folder_abs:
+                try:
+                    os.remove(grid_path)
+                    logging.debug(f"Removed grid image: {grid_path}")
+                except Exception as e:
+                    logging.warning(f"Failed to remove grid image {grid_path}: {e}")
 
-    # Remove any other PNGs in the grids folder (e.g. orphaned or from manual adds)
+    # Remove any other PNGs in the grids folder (orphaned game thumbnails we added)
     if os.path.isdir(grids_folder):
         try:
             for name in os.listdir(grids_folder):
@@ -618,11 +579,11 @@ def remove_all_apps_from_config(apps_json_path: str, grids_folder: str, host: st
         except OSError as e:
             logging.warning(f"Could not list grids folder {grids_folder}: {e}")
 
-    # Reset to host defaults (Desktop, Steam; Apollo also has Virtual Display)
-    default_apps = get_default_apps(host)
-    config['apps'] = default_apps
+    # Keep stock and manual apps; only remove Steam game entries
+    config['apps'] = kept_apps
     save_sunshine_config(apps_json_path, config)
-    logging.info(f"Removed all {removed_count} app(s). Reset to default apps: {[a['name'] for a in default_apps]}.")
+    kept_names = [a.get('name', '') for a in kept_apps]
+    logging.info(f"Removed {removed_count} Steam game(s). Kept stock/manual apps: {kept_names}.")
     return removed_count
 
 
@@ -632,7 +593,7 @@ def main() -> None:
     parser.add_argument('--verbose', '-v', action='store_true', help='Enable verbose logging')
     parser.add_argument('--no-restart', action='store_true', help='Skip starting Steam (if not running) and skip restarting Sunshine/Apollo')
     parser.add_argument('--dry-run', action='store_true', help='Show what would be done without making changes')
-    parser.add_argument('--remove-games', action='store_true', help='Remove ALL apps from host config (fresh apps.json), including manually added ones')
+    parser.add_argument('--remove-games', action='store_true', help='Remove only Steam game apps from host config; keep stock apps (Desktop, Steam, etc.) and their thumbnails')
     args = parser.parse_args()
     
     # Setup logging

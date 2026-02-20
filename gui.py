@@ -577,7 +577,7 @@ class SunshineGUI:
         thread.start()
 
     def _on_remove_games(self):
-        """Remove ALL apps from Sunshine/Apollo (fresh apps.json), including manually added ones."""
+        """Remove only Steam game apps; keep stock apps (Desktop, Steam, Virtual Display) and their thumbnails."""
         if self.running:
             return
         values = self._get_values()
@@ -587,7 +587,7 @@ class SunshineGUI:
             return
         if not messagebox.askyesno(
             "Remove all games",
-            "Remove ALL apps from the host? apps.json will be reset to empty (including apps added manually in the web UI). Thumbnails will be cleared.\n\nContinue?",
+            "Remove all Steam game apps from the host? Desktop, Steam, Virtual Display, and any manually added apps will be kept (stock apps and their thumbnails unchanged). Only game thumbnails in the grids folder will be removed.\n\nContinue?",
         ):
             return
         save_env_to_file(values, self._get_host())
@@ -596,7 +596,7 @@ class SunshineGUI:
         self.remove_games_btn.configure(state="disabled")
         self.log_text.configure(state="normal")
         self.log_text.delete("1.0", "end")
-        self.log_text.insert("end", "Removing all apps (fresh apps.json)...\n\n")
+        self.log_text.insert("end", "Removing Steam game apps (keeping stock apps)...\n\n")
         self.log_text.configure(state="disabled")
         self.log_queue = queue.Queue()
         thread = threading.Thread(
