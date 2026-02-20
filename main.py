@@ -540,32 +540,44 @@ def add_new_games(new_games: Set[str], installed_games: Dict[str, str], api_key:
     return new_apps
 
 
-def remove_steam_games_from_config(apps_json_path: str, grids_folder: str) -> int:
+def remove_all_apps_from_config(apps_json_path: str, grids_folder: str) -> int:
     """
-    Remove all Steam games (steam://rungameid/ entries) from Sunshine/Apollo config.
-    Keeps default apps (Desktop, Steam client, etc.). Deletes their thumbnail images.
-    Returns the number of apps removed.
+    Remove ALL apps from Sunshine/Apollo config (including manually added ones).
+    Writes a fresh apps.json with empty apps array and removes thumbnail files in the grids folder.
+    Returns the number of apps that were removed.
     """
     config = get_sunshine_config(apps_json_path)
     apps = config.get('apps', [])
-    kept = []
-    removed_count = 0
+    removed_count = len(apps)
+
+    # Delete thumbnail images referenced by any app
     for app in apps:
-        cmd = app.get('cmd') or ''
-        if cmd.strip().startswith('steam://rungameid/'):
-            removed_count += 1
-            grid_path = app.get('image-path')
-            if grid_path and os.path.exists(grid_path):
-                try:
-                    os.remove(grid_path)
-                    logging.debug(f"Removed thumbnail: {grid_path}")
-                except Exception as e:
-                    logging.warning(f"Failed to remove thumbnail {grid_path}: {e}")
-        else:
-            kept.append(app)
-    config['apps'] = kept
+        grid_path = app.get('image-path')
+        if grid_path and os.path.exists(grid_path):
+            try:
+                os.remove(grid_path)
+                logging.debug(f"Removed thumbnail: {grid_path}")
+            except Exception as e:
+                logging.warning(f"Failed to remove thumbnail {grid_path}: {e}")
+
+    # Remove any other PNGs in the grids folder (e.g. orphaned or from manual adds)
+    if os.path.isdir(grids_folder):
+        try:
+            for name in os.listdir(grids_folder):
+                if name.lower().endswith('.png'):
+                    path = os.path.join(grids_folder, name)
+                    try:
+                        os.remove(path)
+                        logging.debug(f"Removed grid image: {path}")
+                    except Exception as e:
+                        logging.warning(f"Failed to remove {path}: {e}")
+        except OSError as e:
+            logging.warning(f"Could not list grids folder {grids_folder}: {e}")
+
+    # Fresh config: keep top-level keys like 'env', empty apps
+    config['apps'] = []
     save_sunshine_config(apps_json_path, config)
-    logging.info(f"Removed {removed_count} Steam game(s). Kept {len(kept)} default app(s).")
+    logging.info(f"Removed all {removed_count} app(s). apps.json is now fresh (empty apps).")
     return removed_count
 
 
@@ -575,7 +587,7 @@ def main() -> None:
     parser.add_argument('--verbose', '-v', action='store_true', help='Enable verbose logging')
     parser.add_argument('--no-restart', action='store_true', help='Skip starting Steam (if not running) and skip restarting Sunshine/Apollo')
     parser.add_argument('--dry-run', action='store_true', help='Show what would be done without making changes')
-    parser.add_argument('--remove-games', action='store_true', help='Remove all Steam games from host config, keep default apps only')
+    parser.add_argument('--remove-games', action='store_true', help='Remove ALL apps from host config (fresh apps.json), including manually added ones')
     args = parser.parse_args()
     
     # Setup logging
@@ -592,7 +604,7 @@ def main() -> None:
                 host_name = "sunshine"
             host_name = host_name.capitalize()
             logging.info(f"Removing all Steam games from {host_name}")
-            removed = remove_steam_games_from_config(
+            removed = remove_all_apps_from_config(
                 config['SUNSHINE_APPS_JSON_PATH'],
                 config['SUNSHINE_GRIDS_FOLDER'],
             )

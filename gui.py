@@ -247,12 +247,6 @@ def _cell_red_kw():
     return {"bg": "#8B1A10"}
 
 
-def _transparent_frame_kw():
-    """Kwargs so frame shows the gradient (no section/cell red background)."""
-    if HAS_CTK:
-        return {"fg_color": "transparent"}
-    return {"bg": _GS_GRADIENT_BOTTOM}
-
 
 def _icon_path():
     """Path to GameSphere logo for window icon (script dir or PyInstaller bundle)."""
@@ -333,6 +327,10 @@ class SunshineGUI:
         if HAS_CTK:
             return ctk.CTkFrame(parent, **kwargs)
         return tk.Frame(parent, **kwargs)
+
+    def _gradient_frame(self, parent):
+        """Plain tk Frame with no background so the gradient canvas shows through (CTkFrame 'transparent' adopts canvas bg and blocks gradient)."""
+        return tk.Frame(parent, bg="")
 
     def _label(self, parent, text, **kwargs):
         kwargs.setdefault("font", _gs_font())
@@ -427,33 +425,25 @@ class SunshineGUI:
             bg=_GS_GRADIENT_BOTTOM,
         )
         self._gradient_canvas.pack(fill="both", expand=True)
-        main = self._frame(self._gradient_canvas)
-        if HAS_CTK:
-            main.configure(fg_color="transparent")
-        else:
-            main.configure(bg=_GS_GRADIENT_BOTTOM)
-        pad = 12
+        main = self._gradient_frame(self._gradient_canvas)
+        pad = 20
         self._main_win = self._gradient_canvas.create_window(pad, pad, window=main, anchor="nw")
         self._main_pad = pad
         main.update_idletasks()
         self._gradient_canvas.bind("<Configure>", self._on_canvas_configure)
 
-        # Config section (transparent so gradient shows)
-        config_frame = self._frame(main)
-        if HAS_CTK:
-            config_frame.configure(fg_color="transparent")
-        else:
-            config_frame.configure(bg=_GS_GRADIENT_BOTTOM)
+        # Config section
+        config_frame = self._gradient_frame(main)
         config_frame.pack(fill="x", pady=(0, 8))
         self._label(config_frame, text="Configuration", font=_gs_font(14, "bold")).pack(anchor="w")
 
-        # Streaming host: side-by-side buttons (gradient visible)
-        host_row = self._frame(config_frame, **_transparent_frame_kw())
+        # Streaming host: side-by-side buttons
+        host_row = self._gradient_frame(config_frame)
         host_row.pack(fill="x", pady=(0, 6))
         self._label(host_row, text="Streaming host:", width=32, anchor="w").pack(side="left", padx=(0, 8))
         self.host_var = tk.StringVar(value="Sunshine")
         if HAS_CTK:
-            btn_frame = self._frame(host_row, **_transparent_frame_kw())
+            btn_frame = self._gradient_frame(host_row)
             btn_frame.pack(side="left")
             self._host_sunshine_btn = ctk.CTkButton(
                 btn_frame, text="Sunshine", width=120, font=_gs_font(),
@@ -475,14 +465,14 @@ class SunshineGUI:
             self._host_apollo_btn.pack(side="left")
 
         for key, label in ENV_KEYS.items():
-            row = self._frame(config_frame, **_transparent_frame_kw())
+            row = self._gradient_frame(config_frame)
             row.pack(fill="x", pady=2)
             self._label(row, text=label + ":", width=32, anchor="w").pack(side="left", padx=(0, 8))
             entry = self._entry(row)
             entry.pack(side="left", fill="x", expand=True, padx=(0, 4))
             self.entries[key] = entry
             if "optional" in label.lower():
-                self._label(row, text="(optional)", font=_gs_font(9)).pack(side="left")
+                self._label(row, text="(optional)", font=_gs_font(9)).pack(side="left", padx=(8, 8))
             # Browse button for paths
             if "path" in key.lower() or "folder" in key.lower() or "json" in key.lower():
                 def make_browse(e=entry, is_file=("json" in key or "vdf" in key)):
@@ -498,23 +488,19 @@ class SunshineGUI:
                 btn = self._button(row, "Browse…", make_browse())
                 btn.pack(side="right")
 
-        # Options (transparent)
-        opt_frame = self._frame(main)
-        if HAS_CTK:
-            opt_frame.configure(fg_color="transparent")
-        else:
-            opt_frame.configure(bg=_GS_GRADIENT_BOTTOM)
+        # Options
+        opt_frame = self._gradient_frame(main)
         opt_frame.pack(fill="x", pady=8)
         self._label(opt_frame, text="Options", font=_gs_font(14, "bold")).pack(anchor="w")
         self.dry_run_var = tk.BooleanVar(value=False)
         self.verbose_var = tk.BooleanVar(value=False)
         self.no_restart_var = tk.BooleanVar(value=False)
-        self._checkbox(opt_frame, "Dry run (preview only)", self.dry_run_var).pack(anchor="w")
-        self._checkbox(opt_frame, "Verbose logging", self.verbose_var).pack(anchor="w")
-        self._checkbox(opt_frame, "Do not start Steam or restart host (Sunshine/Apollo)", self.no_restart_var).pack(anchor="w")
+        self._checkbox(opt_frame, "Dry run (preview only)", self.dry_run_var).pack(anchor="w", pady=(0, 4))
+        self._checkbox(opt_frame, "Verbose logging", self.verbose_var).pack(anchor="w", pady=(0, 4))
+        self._checkbox(opt_frame, "Do not start Steam or restart host (Sunshine/Apollo)", self.no_restart_var).pack(anchor="w", pady=(0, 4))
 
-        # Buttons (gradient visible)
-        btn_frame = self._frame(main, **_transparent_frame_kw())
+        # Buttons
+        btn_frame = self._gradient_frame(main)
         btn_frame.pack(fill="x", pady=8)
         self._button(btn_frame, "Save config", self._save_config).pack(side="left", padx=(0, 8))
         self.run_btn = self._button(btn_frame, "Run importer", self._on_run)
@@ -522,13 +508,13 @@ class SunshineGUI:
         self.remove_games_btn = self._button(btn_frame, "Remove all games", self._on_remove_games)
         self.remove_games_btn.pack(side="left")
 
-        # Log (gradient visible)
+        # Log
         self._label(main, text="Log", font=_gs_font(14, "bold")).pack(anchor="w")
-        log_frame = self._frame(main, **_transparent_frame_kw())
+        log_frame = self._gradient_frame(main)
         log_frame.pack(fill="both", expand=True, pady=4)
         self.log_text = scrolledtext.ScrolledText(
             log_frame, wrap="word", height=12, state="disabled",
-            font=("Consolas", 10) if sys.platform == "win32" else ("Monaco", 10),
+            font=("Consolas", 14) if sys.platform == "win32" else ("Monaco", 14),
         )
         self.log_text.pack(fill="both", expand=True)
 
@@ -591,7 +577,7 @@ class SunshineGUI:
         thread.start()
 
     def _on_remove_games(self):
-        """Remove all Steam games from Sunshine/Apollo, keep default apps (Desktop, Steam, etc.)."""
+        """Remove ALL apps from Sunshine/Apollo (fresh apps.json), including manually added ones."""
         if self.running:
             return
         values = self._get_values()
@@ -601,8 +587,7 @@ class SunshineGUI:
             return
         if not messagebox.askyesno(
             "Remove all games",
-            "Remove all Steam games from the host? Default apps (Desktop, Steam client, etc.) will be kept.\n\nContinue?",
-            icon="warning",
+            "Remove ALL apps from the host? apps.json will be reset to empty (including apps added manually in the web UI). Thumbnails will be cleared.\n\nContinue?",
         ):
             return
         save_env_to_file(values, self._get_host())
@@ -611,7 +596,7 @@ class SunshineGUI:
         self.remove_games_btn.configure(state="disabled")
         self.log_text.configure(state="normal")
         self.log_text.delete("1.0", "end")
-        self.log_text.insert("end", "Removing all Steam games...\n\n")
+        self.log_text.insert("end", "Removing all apps (fresh apps.json)...\n\n")
         self.log_text.configure(state="disabled")
         self.log_queue = queue.Queue()
         thread = threading.Thread(
