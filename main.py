@@ -587,6 +587,11 @@ def main() -> None:
         config = validate_config()
         
         if args.remove_games:
+            host_name = os.getenv("HOST", "sunshine").strip()
+            if host_name.lower() not in ("sunshine", "apollo"):
+                host_name = "sunshine"
+            host_name = host_name.capitalize()
+            logging.info(f"Removing all Steam games from {host_name}")
             removed = remove_steam_games_from_config(
                 config['SUNSHINE_APPS_JSON_PATH'],
                 config['SUNSHINE_GRIDS_FOLDER'],
