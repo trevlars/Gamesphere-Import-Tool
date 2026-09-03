@@ -1,7 +1,7 @@
 [project]
 name = "gamesphere-import-tool"
-version = "0.2.0"
-description = "Import Steam games into Sunshine or Apollo with grid artwork for Gamesphere (Windows GUI + CLI)"
+version = "0.3.0"
+description = "Automagically import Steam games into Sunshine or Apollo with artwork for GameSphere (Windows GUI + cross-platform CLI)"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [

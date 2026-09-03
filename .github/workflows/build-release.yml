@@ -1,8 +1,9 @@
-# Build Windows .exe and attach it to a GitHub Release.
-# Trigger: create a Release (e.g. tag v0.2.0) and publish it. The .exe is built and attached automatically.
-# You can also run manually: Actions → Build Windows exe → Run workflow (choose a branch/tag).
+# Build release artifacts and validate Linux import on tag publish.
+#
+# Windows: GamesphereImportTool.exe attached to GitHub Release on publish.
+# Linux: install-linux.sh is the delivery path (no binary artifact).
 
-name: Build Windows exe
+name: Release
 
 on:
   release:
@@ -10,15 +11,38 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: 'Tag to build (e.g. v0.2.0). Leave empty to use default branch.'
+        description: 'Tag to build (e.g. v0.3.0). Leave empty for default branch.'
         required: false
 
 permissions:
   contents: write
 
 jobs:
-  build:
+  linux-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.release.tag_name || github.event.inputs.tag || github.ref }}
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install uv
+        run: pip install uv
+
+      - name: Sync dependencies
+        run: uv sync
+
+      - name: Smoke test CLI
+        run: |
+          uv run main.py --help
+          uv run python -c "from platform_paths import detect_paths; print('platform_paths ok')"
+
+  build-windows:
     runs-on: windows-latest
+    needs: linux-smoke
     steps:
       - name: Checkout
         uses: actions/checkout@v4

@@ -1,10 +1,10 @@
 # GameSphere Import — DeckyLoader plugin
 
-Import your Steam library into Sunshine from Game Mode (Steam Deck, Bazzite, or any Linux host running Decky).
+Import your Steam library into Sunshine from Game Mode — uses the same **automagic** CLI as the host (`gamesphere-import`).
 
 ## Prerequisites
 
-1. Install the CLI first (on the host):
+1. Install the CLI (detects paths automatically):
 
    ```bash
    curl -fsSL https://raw.githubusercontent.com/trevlars/Gamesphere-Import-Tool/main/scripts/install-linux.sh | bash

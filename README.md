@@ -1,348 +1,200 @@
 # GameSphere Import Tool
 
-**GameSphere Import Tool** imports your installed Steam games into [Sunshine](https://github.com/LizardByte/Sunshine) or [Apollo](https://github.com/ClassicOldSong/Apollo) (game streaming hosts), with thumbnail artwork. **No signup for thumbnails:** art is fetched from Steam’s CDN by default (same approach as the [GameSphere](https://github.com/trevlars/GameSphere) client). An optional SteamGridDB API key can be used for community picks.
+**Populate Sunshine or Apollo with your Steam library — automatically.**
 
-> **Credit — Original Python project**  
-> This project is a fork of **[Sunshine-App-Automation](https://github.com/CommonMugger/Sunshine-App-Automation)** by [CommonMugger](https://github.com/CommonMugger). The original Python automation (Steam detection, config handling, thumbnails, and CLI) was the foundation for this tool. We added a Windows GUI, Apollo support, GameSphere branding, and other improvements. Thank you to CommonMugger for the original work. 
+The GameSphere Import Tool reads your installed Steam games, downloads box art (Steam CDN by default — no signup), writes the host `apps.json`, and restarts the streaming service. On Linux it is designed to be **automagic**: paths, launch commands, and service restart are detected for you.
 
-Example:
+Built for [GameSphere](https://github.com/trevlars/GameSphere) (Moonlight clients on iPhone, iPad, and Apple TV) and any Moonlight client.
 
 ![GameSphere Import Tool](assets/readme-screenshot.png)
 
-## Features
+> Fork of **[Sunshine-App-Automation](https://github.com/CommonMugger/Sunshine-App-Automation)** by [CommonMugger](https://github.com/CommonMugger). We added Apollo support, a Windows GUI, Linux/Bazzite automagic, and GameSphere branding.
 
-- **Automatically detects installed Steam games** with concurrent processing for speed
-- **Epic Games Store (BETA)** — detects installed Epic games (Windows) from launcher manifests and adds them with launch commands and optional thumbnails (SteamGridDB search by name)
-- **Xbox / Windows games** — auto-discovers games in the usual Xbox install folder (`C:\XboxGames` by default; Game Pass, Minecraft, etc.) using `MicrosoftGame.config` or by scanning for executables
-- **Custom games** — add any game by path via a JSON file (e.g. games not in `C:\XboxGames`); thumbnails from SteamGridDB by name when available
-- **Fetches game names and thumbnail images** — Steam CDN by default (no API key); optional SteamGridDB for community art
-- **Updates Sunshine/Apollo apps.json** with Steam, Epic (BETA), Xbox, and custom games and their thumbnail images
-- **Cross-platform support** for Windows, Linux, and macOS
-- **Robust error handling** with comprehensive logging
-- **Command-line options** for verbose output, dry runs, and more
-- **Environment-based configuration** using .env files
-- **Automatic backup** of configuration files before changes
-- **Standalone Windows .exe** — build once, share with users who don’t have Python
+---
 
-## Prerequisites
+## Quick start
 
-Before you begin, ensure you have met the following requirements:
+### Linux — Bazzite, Steam Deck, or any distro (recommended flow)
 
-- **Python 3.12 or higher** installed
-- **uv package manager** (recommended) or pip
-- **Sunshine** or **Apollo** installed and configured
-- **(Optional)** A [SteamGridDB](https://www.steamgriddb.com/profile/preferences/api) API key for community thumbnail art; if omitted, thumbnails use Steam’s CDN with no signup
-
-## Installation
-
-### Recommended: Using uv (Fast and Modern)
-
-1. **Install uv** if you haven't already:
-   ```bash
-   # Windows
-   powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
-   
-   # macOS/Linux
-   curl -LsSf https://astral.sh/uv/install.sh | sh
-   ```
-
-2. **Clone this repository**:
-   ```bash
-   git clone https://github.com/trevlars/Gamesphere-Import-Tool.git
-   cd Gamesphere-Import-Tool
-   ```
-
-3. **Install dependencies using uv**:
-   ```bash
-   uv sync
-   ```
-
-### Alternative: Using pip
-
-1. **Install Python dependencies**:
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-## Windows GUI
-
-On Windows you can use the **Gamesphere Import Tool** GUI instead of the command line:
-
-1. Install dependencies (including `customtkinter`):  
-   `pip install -r requirements.txt` or `uv sync`
-2. Run the GUI:  
-   `python gui.py` or `uv run gui.py`
-3. Choose **Sunshine** or **Apollo** as the streaming host (default paths update automatically).
-4. Fill in the paths (SteamGridDB API key is optional — leave blank to use Steam CDN thumbnails); use **Browse** to pick files/folders.
-5. Use **Save config** to write a `.env` file, then **Run importer** to run the automation. **Remove all games** removes all games (Steam + manually added) and keeps only stock apps (Desktop, Steam, Virtual Display) with their thumbnails. Log output appears in the window.
-
-The GUI uses the same `.env` as the CLI, so you can switch between GUI and command line.
-
-### Standalone Windows .exe
-
-You can build a single **.exe** so others can run the tool without installing Python:
-
-1. **On a Windows machine**, install the build optional dependency:
-   ```bash
-   uv sync --extra build
-   # or: pip install pyinstaller
-   ```
-2. Build the executable:
-   ```bash
-   uv run build_exe.py
-   # or: pyinstaller GamesphereImportTool.spec
-   ```
-3. The executable is created at `dist/GamesphereImportTool.exe`. Copy it (and optionally a `.env` or `.env.example`) to share.
-4. **End users:** Put the `.exe` in a folder, run it, set paths in the GUI (API key optional), save config, then click **Run importer**. No Python installation required.
-
-### Publishing a release (downloadable .exe on GitHub)
-
-You can ship the .exe via **GitHub Releases** so people can download it without cloning the repo.
-
-**Option A — Build on Windows, then create the release**
-
-1. On a **Windows** machine, build the .exe (see above):  
-   `uv sync --extra build` then `uv run build_exe.py`
-2. On GitHub: **Releases** → **Create a new release**.
-3. Choose a **tag** (e.g. `v0.2.0`). Create the tag if it doesn’t exist.
-4. Set **Release title** (e.g. `v0.2.0`) and add **Description** (changelog, usage notes).
-5. Under **Assets**, click **Attach binaries** and upload `dist/GamesphereImportTool.exe`.
-6. Publish the release. The .exe will be available for download on the release page.
-
-**Option B — Let GitHub Actions build the .exe (no Windows PC needed)**
-
-The repo includes a workflow that builds the .exe and attaches it to the release automatically:
-
-1. Create and push a **tag** (e.g. `v0.2.0`):
-   ```bash
-   git tag v0.2.0
-   git push origin v0.2.0
-   ```
-2. On GitHub: **Releases** → **Draft a new release**.
-3. Choose the tag you pushed (e.g. `v0.2.0`), add title and description, then **Publish release**. Do not upload any files.
-4. The **Build Windows exe** workflow runs on GitHub’s Windows runner. When it finishes, `GamesphereImportTool.exe` is attached to the release automatically. Check **Actions** for build status.
-5. Download the .exe from the release’s **Assets** section.
-
-## Configuration
-
-The script now uses environment variables for configuration. Create a `.env` file in the project directory:
-
-```env
-# Required variables
-STEAM_LIBRARY_VDF_PATH=C:/Program Files (x86)/Steam/steamapps/libraryfolders.vdf
-SUNSHINE_APPS_JSON_PATH=C:/Program Files/Sunshine/config/apps.json
-SUNSHINE_GRIDS_FOLDER=C:/Sunshine_Thumbnails
-
-# Optional: SteamGridDB API key for community thumbnail art; leave empty to use Steam CDN (no signup)
-STEAMGRIDDB_API_KEY=
-
-# Optional variables (for Windows process restart)
-STEAM_EXE_PATH=C:/Program Files (x86)/Steam/steam.exe
-SUNSHINE_EXE_PATH=C:/Program Files/Sunshine/sunshine.exe
-
-# Optional: Epic Games Store (BETA, Windows). Defaults to C:/ProgramData/Epic/EpicGamesLauncher/Data/Manifests if empty
-EPIC_MANIFESTS_PATH=
-
-# Optional: path to a JSON file listing custom games. See custom_games.example.json
-CUSTOM_GAMES_JSON_PATH=
-
-# Optional: Xbox/Windows games root folder(s), comma-separated (e.g. C:/XboxGames,D:/XboxGames). Default on Windows: C:/XboxGames
-XBOX_GAMES_FOLDERS=
-
-# Optional: folder for auto-generated .lnk shortcuts (Windows). If set, Epic/Xbox/custom games use shortcuts here and Sunshine launches via them (can help with permissions).
-SUNSHINE_SHORTCUTS_FOLDER=
-```
-
-### Path Examples by Platform:
-
-**Windows:**
-- Steam Library: `C:/Program Files (x86)/Steam/steamapps/libraryfolders.vdf`
-- Sunshine Apps: `C:/Program Files/Sunshine/config/apps.json`
-- Thumbnails folder: `C:/Sunshine_Thumbnails`
-
-**Linux:**
-- Steam Library: `/home/username/.local/share/Steam/steamapps/libraryfolders.vdf`
-- Sunshine Apps: `/home/username/.config/sunshine/apps.json`
-- Thumbnails folder: `/home/username/.config/sunshine/grids`
-
-**macOS:**
-- Steam Library: `/Users/username/Library/Application Support/Steam/steamapps/libraryfolders.vdf`
-- Sunshine Apps: `/Users/username/.config/sunshine/apps.json`
-- Thumbnails folder: `/Users/username/.config/sunshine/grids`
-
-## Linux (Bazzite, Steam Deck, generic)
-
-On Linux the CLI auto-detects Steam and Sunshine paths — no manual `.env` required for typical setups.
-
-### Quick install (Bazzite / Steam Deck host)
+One command installs, detects paths, and creates `gamesphere-import`:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/trevlars/Gamesphere-Import-Tool/main/scripts/install-linux.sh | bash
-gamesphere-import --dry-run   # preview
-gamesphere-import             # import + restart Sunshine (systemd)
+gamesphere-import --dry-run   # preview (optional)
+gamesphere-import             # import + restart Sunshine
 ```
 
-Paths detected automatically:
+**No `.env` editing required** on typical setups. The tool finds native or Flatpak Steam, Sunshine/Apollo config, and uses `systemctl --user restart sunshine` when that service exists.
 
-| Component | Bazzite (native) | Flatpak Steam / Sunshine |
-|-----------|------------------|---------------------------|
-| Steam VDF | `~/.local/share/Steam/steamapps/libraryfolders.vdf` | `~/.var/app/com.valvesoftware.Steam/...` |
-| Sunshine apps | `~/.config/sunshine/apps.json` | `~/.var/app/dev.lizardbyte.app.Sunshine/...` |
-| Thumbnails | `~/.config/sunshine/covers/` | same under Flatpak config |
-| Host restart | `systemctl --user restart sunshine` | `flatpak restart dev.lizardbyte.app.Sunshine` |
+### Windows — GUI or `.exe`
 
-Generate or inspect config without importing:
+1. Download **`GamesphereImportTool.exe`** from [Releases](https://github.com/trevlars/Gamesphere-Import-Tool/releases/latest).
+2. Run it → choose **Sunshine** or **Apollo** → **Save config** → **Run importer**.
+
+Or from source: `uv sync` then `uv run gui.py`.
+
+### macOS — CLI
 
 ```bash
-uv run main.py --print-config   # JSON to stdout
-uv run main.py --auto-config    # write .env
+git clone https://github.com/trevlars/Gamesphere-Import-Tool.git && cd Gamesphere-Import-Tool
+uv sync && uv run main.py --auto-config && uv run main.py
 ```
 
-**Bazzite note:** Normal import keeps your existing Desktop / Steam Big Picture entries (including custom `prep-cmd` hooks like `sunshine-stream-prep.sh`). Only `--remove-games` resets stock apps.
+---
 
-**Linux scope:** Steam library import only. Epic, Xbox, and `.lnk` shortcuts remain Windows-only.
+## What happens automatically
 
-### DeckyLoader (Game Mode UI)
+When you run the importer with no manual setup:
 
-See [`decky/README.md`](decky/README.md). Build the plugin with `pnpm install && pnpm run build` inside `decky/`, then install to `~/homebrew/plugins/gamesphere-import`.
+| Automagic step | Details |
+|----------------|---------|
+| **Path detection** | Steam `libraryfolders.vdf`, host `apps.json`, covers folder — native, Flatpak, or Windows Program Files |
+| **Host profile** | Detects Bazzite, SteamOS, Windows, macOS |
+| **Steam launch commands** | Windows: `steam://rungameid/…` · Linux: `detached` + `setsid steam …` (Sunshine requirement) · Flatpak when needed |
+| **Stream prep hooks** | On Bazzite, adds `sunshine-stream-prep.sh` prep to imported games when that script exists |
+| **Artwork** | Steam CDN thumbnails in parallel (optional [SteamGridDB](https://www.steamgriddb.com/profile/preferences/api) key) |
+| **Merge, don’t wipe** | Keeps your Desktop, Steam Big Picture, and custom `prep-cmd` entries |
+| **Prune** | Removes uninstalled Steam (and Epic on Windows) games from the host list |
+| **Backup** | Copies `apps.json` before writing |
+| **Repair** | Re-import fixes Linux entries that used `cmd` instead of `detached` |
+| **Start Steam** | Launches Steam if it isn’t running |
+| **Restart host** | Windows exe · Linux systemd · Flatpak restart |
 
-## Usage
-
-### Basic Usage
+Inspect what would be detected without importing:
 
 ```bash
-# Using uv (recommended)
-uv run main.py
-
-# Using python directly
-python main.py
+gamesphere-import --print-config
 ```
 
-### Command-line Options
+---
+
+## Features
+
+- **Steam** — all installed library games with concurrent name/art fetch
+- **Windows extras** — Epic Games Store (beta), Xbox / Game Pass (`C:\XboxGames`), custom JSON games, `.lnk` shortcuts
+- **Sunshine & Apollo** — same tool; set `HOST=apollo` or use the Windows GUI host selector
+- **Cross-platform CLI** — Windows, Linux, macOS
+- **Windows GUI** — CustomTkinter app + standalone `.exe`
+- **DeckyLoader** — optional Game Mode plugin ([`decky/README.md`](decky/README.md))
+
+---
+
+## Command reference
 
 ```bash
-# Verbose logging for debugging
-uv run main.py --verbose
+gamesphere-import                 # import (alias after Linux install)
+uv run main.py                    # same, from repo directory
 
-# Preview changes without making them
-uv run main.py --dry-run
-
-# Remove all games (Steam + manually added); keeps only stock apps (Desktop, Steam, Virtual Display)
-uv run main.py --remove-games
-
-# Skip starting Steam (if not running) and skip restarting the streaming host
-uv run main.py --no-restart
-
-# Auto-detect paths and write .env (Linux / first-run)
-uv run main.py --auto-config
-
-# Print detected paths as JSON
-uv run main.py --print-config
-
-# Combine options
-uv run main.py --verbose --dry-run
+uv run main.py --dry-run          # preview changes only
+uv run main.py --verbose          # debug logging
+uv run main.py --no-restart       # skip Steam start + host restart
+uv run main.py --remove-games     # reset to stock apps only
+uv run main.py --auto-config      # write .env from auto-detected paths
+uv run main.py --print-config     # print detected paths as JSON
 ```
 
-### What the script does:
+Log file: `sunshine_automation.log` in the working directory.
 
-1. **Validates configuration** and checks all required paths
-2. **Loads Steam library** and discovers installed games (concurrent processing)
-3. **Loads Epic Games (BETA)** (Windows) from the manifests folder if configured
-4. **Discovers Xbox/Windows games** in `XBOX_GAMES_FOLDERS` (e.g. `C:\XboxGames`) if set
-5. **Loads custom games** from your JSON file if `CUSTOM_GAMES_JSON_PATH` is set
-6. **Downloads thumbnail images** from Steam CDN (or SteamGridDB if API key is set); Epic/Xbox/custom use SteamGridDB search by name when available
-7. **Updates Sunshine/Apollo configuration** with new games and removes uninstalled ones (Steam/Epic BETA); Xbox and custom games stay until removed from folder/JSON or you use Remove all games
-8. **Creates backups** of your configuration before making changes
-9. **Provides detailed logging** of all operations
+---
 
-### Xbox / Windows games (Game Pass, Minecraft, etc.)
+## Configuration (optional)
 
-Games installed via the Xbox app are usually in **C:\XboxGames**. Set `XBOX_GAMES_FOLDERS` to that path (or leave it blank on Windows to use the default). You can use multiple folders separated by commas (e.g. `C:/XboxGames,D:/XboxGames`). The tool discovers each game from `MicrosoftGame.config` when present, or by finding executables in each subfolder.
+Auto-detection covers most users. Override with a `.env` file only when needed:
 
-### Custom games (games not in Steam, Epic, or C:\XboxGames)
+```bash
+uv run main.py --auto-config   # generate a starting .env
+```
 
-1. Copy `custom_games.example.json` to `custom_games.json` (or any path).
-2. Edit the `games` array: each entry needs `name` and `cmd` (full path to the game executable). `image_path` is optional (leave empty to try SteamGridDB by name).
-3. Set `CUSTOM_GAMES_JSON_PATH` in your `.env` to the path of your JSON file.
-4. Run the importer. Custom games are added and stay until you remove them from the JSON or use **Remove all games**.
+See [`.env.example`](.env.example) for all keys. Common overrides:
 
-### Shortcuts folder (optional, Windows)
+| Variable | When to set |
+|----------|-------------|
+| `HOST` | `apollo` instead of default Sunshine |
+| `STEAMGRIDDB_API_KEY` | Community cover art picks |
+| `CUSTOM_GAMES_JSON_PATH` | Non-Steam executables (see `custom_games.example.json`) |
+| `XBOX_GAMES_FOLDERS` | Windows Xbox installs outside `C:\XboxGames` |
 
-If you set `SUNSHINE_SHORTCUTS_FOLDER` (e.g. `C:/Sunshine_Shortcuts`), the tool will create **.lnk shortcut files** there for each Epic (BETA), Xbox, and custom game. Sunshine/Apollo will then launch games by running those shortcuts (via `cmd /c start "" "path\to\shortcut.lnk"`), which can help when the game exe is in a protected location or you want all launchables in one folder. The shortcuts folder is created automatically; **Remove all games** also deletes all `.lnk` files in it.
+### Path reference
+
+| Platform | Steam VDF | apps.json | Covers |
+|----------|-----------|-----------|--------|
+| **Linux (native)** | `~/.local/share/Steam/steamapps/libraryfolders.vdf` | `~/.config/sunshine/apps.json` | `~/.config/sunshine/covers/` |
+| **Linux (Flatpak)** | `~/.var/app/com.valvesoftware.Steam/.../libraryfolders.vdf` | `~/.var/app/dev.lizardbyte.app.Sunshine/.../apps.json` | under Flatpak config |
+| **Windows** | `C:/Program Files (x86)/Steam/steamapps/libraryfolders.vdf` | `C:/Program Files/Sunshine/config/apps.json` | configurable |
+| **macOS** | `~/Library/Application Support/Steam/steamapps/libraryfolders.vdf` | `~/.config/sunshine/apps.json` | `~/.config/sunshine/covers/` |
+
+---
+
+## DeckyLoader (Steam Deck / Bazzite Game Mode)
+
+```bash
+# After install-linux.sh
+cd ~/.local/share/gamesphere-import-tool/decky
+pnpm install && pnpm run build
+ln -sfn "$PWD" ~/homebrew/plugins/gamesphere-import
+```
+
+Reload Decky. The plugin runs `gamesphere-import` with dry-run and log output in Game Mode.
+
+---
+
+## For Sunshine & Apollo developers
+
+Want a **“Sync Steam library”** button in your web UI, a first-run wizard, or a scheduled sync?
+
+→ **[docs/HOST_INTEGRATION.md](docs/HOST_INTEGRATION.md)** — subprocess contract, systemd timers, UI copy, and Python module hooks.
+
+---
 
 ## Troubleshooting
 
-### Common Issues
+| Issue | Fix |
+|-------|-----|
+| Game tile appears but **doesn’t launch** on Linux | Re-run import (v0.3.0+ uses `detached` commands). Check Sunshine log for `Executing [Game Name]`. |
+| **Permission denied** writing `apps.json` (Windows Program Files) | Run GUI/exe as Administrator |
+| **Missing games** in list | Some VDF entries are redistributables, not games — warnings are normal |
+| **No box art** for one title | Steam CDN gap; optional SteamGridDB key |
+| Paths wrong | `gamesphere-import --print-config` then edit `.env` or open an issue |
 
-- **"Invalid argument" errors**: Check your `.env` file paths use forward slashes `/` or double backslashes `\\`
-- **"Access Denied" / "Permission denied" when saving config**: If Apollo or Sunshine is installed under `C:\Program Files`, the tool must write to that folder. Right-click the app (or shortcut) and choose **Run as administrator**, then run the importer again. Backups are saved to your user folder if the config directory is not writable.
-- **API rate limiting**: The script includes automatic retry logic with backoff
-- **Missing games**: Some games may not have data available in Steam's API
+---
 
-### Log Files
+## Releases
 
-The script creates detailed logs in `sunshine_automation.log`. Use `--verbose` for more detailed output.
+| Version | Highlights |
+|---------|------------|
+| **[v0.3.0](https://github.com/trevlars/Gamesphere-Import-Tool/releases/tag/v0.3.0)** | Linux automagic, Bazzite/Deck support, detached launch fix, Decky scaffold |
+| [v1.0.1](https://github.com/trevlars/Gamesphere-Import-Tool/releases/tag/v1.0.1) | Windows Epic (beta) + Xbox discovery |
 
-### Environment Variable Issues
+Full history: [CHANGELOG.md](CHANGELOG.md)
 
-If you're having path issues, the script will now:
-- Automatically normalize Windows paths
-- Validate that required directories exist
-- Give clear error messages about what's wrong
+**Windows:** [Releases](https://github.com/trevlars/Gamesphere-Import-Tool/releases/latest) → `GamesphereImportTool.exe`  
+**Linux:** `install-linux.sh` (always latest `main`) or pin a tag in the script if you prefer.
 
-### Platform-Specific Notes
+---
 
-**Linux (Bazzite, Steam Deck):**
-- Paths are auto-detected when `.env` is missing or incomplete
-- Steam launch uses `setsid steam steam://rungameid/...` (native) or Flatpak when appropriate
-- Sunshine restarts via `systemctl --user restart sunshine` when that service exists
-- Use `scripts/install-linux.sh` for one-command setup
+## Development
 
-**Linux with Flatpak Steam:**
-The script automatically detects Flatpak Steam installations and uses the correct command format.
+```bash
+uv sync                  # install deps
+uv run main.py --dry-run # test
+uv sync --extra build && uv run build_exe.py   # Windows .exe only
+```
 
-**macOS:**
-Steam paths may vary depending on installation method (Steam app vs manual install).
+Publishing a Windows release: push tag `vX.Y.Z`, draft/publish a GitHub Release — CI attaches the `.exe` ([`.github/workflows/build-release.yml`](.github/workflows/build-release.yml)).
 
-## Repository
-
-**[github.com/trevlars/Gamesphere-Import-Tool](https://github.com/trevlars/Gamesphere-Import-Tool)**
-
-## Contributing
-
-Contributions to improve the script are welcome. Please feel free to submit a Pull Request.
-
-## Changelog
-
-### GameSphere Import Tool (this fork)
-- Windows GUI (CustomTkinter) with config form and log output; GameSphere branding and red theme
-- **Sunshine** and **Apollo** support with host selector and default paths
-- **Epic Games Store (BETA)** — import installed Epic games (Windows) from launcher manifests; launch via Epic protocol or optional .lnk shortcuts; thumbnails via SteamGridDB by name
-- **Xbox / Windows games** — auto-discover Game Pass, Minecraft, and other Xbox-app games from `C:\XboxGames` (or custom folders); uses `MicrosoftGame.config` or executable scanning; optional .lnk shortcuts; thumbnails via SteamGridDB by name
-- **Remove all games** removes all games (Steam + manually added); keeps only stock apps (Desktop, Steam, Virtual Display)
-- Host restart works for both Sunshine and Apollo
-- Credit to [CommonMugger/Sunshine-App-Automation](https://github.com/CommonMugger/Sunshine-App-Automation) for the original Python automation
-
-### v2.0 (upstream)
-- Complete rewrite with improved architecture
-- Environment variable configuration
-- Concurrent processing, retry logic, cross-platform CLI
-
-### v1.0 (original)
-- Basic Steam game detection and SteamGridDB integration
+---
 
 ## Acknowledgements
 
-- **[CommonMugger/Sunshine-App-Automation](https://github.com/CommonMugger/Sunshine-App-Automation)** — original Python project this fork is based on. The core automation (Steam library parsing, Sunshine/Apollo config updates, thumbnail handling, and CLI) comes from that repo. Thank you to [CommonMugger](https://github.com/CommonMugger) for the original work.
-- [Sunshine](https://github.com/LizardByte/Sunshine) and [Apollo](https://github.com/ClassicOldSong/Apollo) — game streaming hosts
-- [Steam CDN](https://partner.steamgames.com/doc/store/assets/libraryassets) and optional [SteamGridDB](https://www.steamgriddb.com/) for thumbnail images
-- [GameSphere](https://github.com/trevlars/GameSphere) — TV client that pairs with this importer; GUI styling and branding are inspired by it
-- [uv](https://github.com/astral-sh/uv) for fast Python package management
+- [CommonMugger/Sunshine-App-Automation](https://github.com/CommonMugger/Sunshine-App-Automation) — original automation
+- [Sunshine](https://github.com/LizardByte/Sunshine) · [Apollo](https://github.com/ClassicOldSong/Apollo) — streaming hosts
+- [GameSphere](https://github.com/trevlars/GameSphere) — client shelf
+- [uv](https://github.com/astral-sh/uv)
 
 ---
 
 ## Legal disclaimer
 
-<sub>*Fine print. This project is provided for convenience only. You are responsible for your own setup and any effects of using this software.*</sub>
+<sub>*This project is provided for convenience only. You are responsible for your own setup.*</sub>
 
-**Use at your own risk.** This software is provided **“as is”** without warranty of any kind. The authors and contributors are not liable for any damage to your computer, operating system, games, game saves, Steam or Sunshine/Apollo configuration, or any other software or data arising from the use or misuse of this tool. Back up your configuration and important data before use. This project is not affiliated with, endorsed by, or supported by Valve (Steam), LizardByte (Sunshine), Apollo, SteamGridDB, or any other third-party product or service mentioned here. All trademarks are property of their respective owners.
+**Use at your own risk.** Provided **“as is”** without warranty. Not affiliated with Valve, LizardByte, Apollo, or SteamGridDB. Back up `apps.json` before first use.
