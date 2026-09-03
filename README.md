@@ -170,6 +170,42 @@ SUNSHINE_SHORTCUTS_FOLDER=
 - Sunshine Apps: `/Users/username/.config/sunshine/apps.json`
 - Thumbnails folder: `/Users/username/.config/sunshine/grids`
 
+## Linux (Bazzite, Steam Deck, generic)
+
+On Linux the CLI auto-detects Steam and Sunshine paths — no manual `.env` required for typical setups.
+
+### Quick install (Bazzite / Steam Deck host)
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/trevlars/Gamesphere-Import-Tool/main/scripts/install-linux.sh | bash
+gamesphere-import --dry-run   # preview
+gamesphere-import             # import + restart Sunshine (systemd)
+```
+
+Paths detected automatically:
+
+| Component | Bazzite (native) | Flatpak Steam / Sunshine |
+|-----------|------------------|---------------------------|
+| Steam VDF | `~/.local/share/Steam/steamapps/libraryfolders.vdf` | `~/.var/app/com.valvesoftware.Steam/...` |
+| Sunshine apps | `~/.config/sunshine/apps.json` | `~/.var/app/dev.lizardbyte.app.Sunshine/...` |
+| Thumbnails | `~/.config/sunshine/covers/` | same under Flatpak config |
+| Host restart | `systemctl --user restart sunshine` | `flatpak restart dev.lizardbyte.app.Sunshine` |
+
+Generate or inspect config without importing:
+
+```bash
+uv run main.py --print-config   # JSON to stdout
+uv run main.py --auto-config    # write .env
+```
+
+**Bazzite note:** Normal import keeps your existing Desktop / Steam Big Picture entries (including custom `prep-cmd` hooks like `sunshine-stream-prep.sh`). Only `--remove-games` resets stock apps.
+
+**Linux scope:** Steam library import only. Epic, Xbox, and `.lnk` shortcuts remain Windows-only.
+
+### DeckyLoader (Game Mode UI)
+
+See [`decky/README.md`](decky/README.md). Build the plugin with `pnpm install && pnpm run build` inside `decky/`, then install to `~/homebrew/plugins/gamesphere-import`.
+
 ## Usage
 
 ### Basic Usage
@@ -196,6 +232,12 @@ uv run main.py --remove-games
 
 # Skip starting Steam (if not running) and skip restarting the streaming host
 uv run main.py --no-restart
+
+# Auto-detect paths and write .env (Linux / first-run)
+uv run main.py --auto-config
+
+# Print detected paths as JSON
+uv run main.py --print-config
 
 # Combine options
 uv run main.py --verbose --dry-run
@@ -249,6 +291,12 @@ If you're having path issues, the script will now:
 - Give clear error messages about what's wrong
 
 ### Platform-Specific Notes
+
+**Linux (Bazzite, Steam Deck):**
+- Paths are auto-detected when `.env` is missing or incomplete
+- Steam launch uses `setsid steam steam://rungameid/...` (native) or Flatpak when appropriate
+- Sunshine restarts via `systemctl --user restart sunshine` when that service exists
+- Use `scripts/install-linux.sh` for one-command setup
 
 **Linux with Flatpak Steam:**
 The script automatically detects Flatpak Steam installations and uses the correct command format.

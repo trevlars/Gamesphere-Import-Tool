@@ -18,6 +18,8 @@ from typing import Dict, List, Optional, Set, Tuple
 from urllib.parse import urljoin
 from dotenv import load_dotenv
 
+from platform_paths import apply_detected_paths, detect_paths, paths_to_env, write_env_file
+
 # Configuration and logging setup
 def setup_logging(verbose: bool = False) -> None:
     """Configure logging for the application."""
@@ -49,9 +51,19 @@ def normalize_path(path: str) -> str:
     
     return path
 
-def validate_config() -> Dict[str, str]:
+def validate_config(auto_detect: bool = True) -> Dict[str, str]:
     """Load and validate configuration from environment variables."""
     load_dotenv()
+
+    if auto_detect:
+        detected = apply_detected_paths()
+        if detected:
+            logging.info(
+                "Auto-detected paths for %s (%s Steam, %s Sunshine restart)",
+                detected.host_label,
+                detected.steam_mode,
+                detected.sunshine_restart,
+            )
     
     required_vars = {
         'steam_library_vdf_path': 'Steam library VDF file path',
@@ -123,13 +135,49 @@ def validate_config() -> Dict[str, str]:
     return config
 
 
+def _steam_mode() -> str:
+    """Return configured Steam launch mode: windows, native, flatpak, or macos."""
+    mode = (os.getenv("GAMESPHERE_STEAM_MODE") or "").strip().lower()
+    if mode:
+        return mode
+    if os.name == "nt":
+        return "windows"
+    if sys.platform == "darwin":
+        return "macos"
+    return "native"
+
+
+def _steam_launch_cmd(app_id: str) -> str:
+    """Build a platform-appropriate Steam launch command for an app id."""
+    if os.name == "nt":
+        return f"steam://rungameid/{app_id}"
+
+    mode = _steam_mode()
+    if mode == "flatpak":
+        return f"flatpak run com.valvesoftware.Steam steam://rungameid/{app_id}"
+    if mode == "macos":
+        return f"open steam://rungameid/{app_id}"
+    return f"setsid steam steam://rungameid/{app_id}"
+
+
+def _extract_steam_app_id(cmd: str) -> Optional[str]:
+    """Extract a Steam app id from Windows or Linux launch commands."""
+    if not cmd:
+        return None
+    if "rungameid/" in cmd:
+        return cmd.split("rungameid/")[-1].split("?")[0].split()[0].strip()
+    if cmd.startswith("steam://rungameid/"):
+        return cmd.split("/")[-1].split("?")[0].strip()
+    return None
+
+
 def _is_steam_running() -> bool:
-    """Return True if steam.exe is already running (Windows)."""
-    if os.name != 'nt':
-        return False
+    """Return True if Steam is already running."""
+    steam_names = {"steam.exe", "steam", "steam_osx"}
     try:
-        for proc in psutil.process_iter(['name']):
-            if proc.info.get('name') and proc.info['name'].lower() == 'steam.exe':
+        for proc in psutil.process_iter(["name"]):
+            name = (proc.info.get("name") or "").lower()
+            if name in steam_names:
                 return True
     except Exception:
         pass
@@ -138,59 +186,129 @@ def _is_steam_running() -> bool:
 
 def ensure_steam_running(steam_exe_path: str) -> None:
     """Start Steam only if it is not already running. Does not restart or close Steam."""
-    if os.name != 'nt':
-        logging.warning("Steam start is only supported on Windows. Ensure Steam is running if needed.")
-        return
-
-    if not steam_exe_path or not os.path.exists(steam_exe_path):
-        logging.warning("Steam executable path not configured or doesn't exist. Skipping Steam start.")
-        return
-
     if _is_steam_running():
         logging.info("Steam is already running. Skipping start.")
         return
 
+    mode = _steam_mode()
     logging.info("Steam is not running. Starting Steam...")
+
     try:
-        subprocess.Popen([steam_exe_path], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        time.sleep(5)  # Brief pause for Steam to begin starting
+        if os.name == "nt":
+            if not steam_exe_path or not os.path.exists(steam_exe_path):
+                logging.warning(
+                    "Steam executable path not configured or doesn't exist. Skipping Steam start."
+                )
+                return
+            subprocess.Popen(
+                [steam_exe_path], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+            )
+        elif mode == "flatpak":
+            subprocess.Popen(
+                ["flatpak", "run", "com.valvesoftware.Steam"],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+        elif sys.platform == "darwin":
+            subprocess.Popen(
+                ["open", "-a", "Steam"],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+        else:
+            steam_bin = steam_exe_path if steam_exe_path and os.path.exists(steam_exe_path) else "steam"
+            subprocess.Popen(
+                [steam_bin],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+        time.sleep(5)
         logging.info("Steam start requested")
     except Exception as e:
         logging.error(f"Error starting Steam: {e}")
 
+
 def restart_sunshine(sunshine_exe_path: str) -> None:
     """Restart Sunshine/Apollo (or other Sunshine-compatible host) safely."""
-    if os.name != 'nt':
-        logging.warning("Host restarting is only supported on Windows. Please restart manually.")
+    restart_mode = (os.getenv("GAMESPHERE_SUNSHINE_RESTART") or "").strip().lower()
+
+    if restart_mode == "systemd" or (
+        not restart_mode and os.name != "nt" and sys.platform != "darwin"
+    ):
+        logging.info("Restarting Sunshine via systemd --user...")
+        try:
+            result = subprocess.run(
+                ["systemctl", "--user", "restart", "sunshine"],
+                capture_output=True,
+                text=True,
+                timeout=30,
+            )
+            if result.returncode == 0:
+                logging.info("Sunshine restart completed (systemd)")
+                return
+            logging.warning(
+                "systemctl restart failed (%s): %s",
+                result.returncode,
+                (result.stderr or result.stdout).strip(),
+            )
+        except Exception as e:
+            logging.warning(f"systemd restart failed: {e}")
+
+    if restart_mode == "flatpak":
+        logging.info("Restarting Sunshine via flatpak...")
+        try:
+            result = subprocess.run(
+                ["flatpak", "restart", "dev.lizardbyte.app.Sunshine"],
+                capture_output=True,
+                text=True,
+                timeout=30,
+            )
+            if result.returncode == 0:
+                logging.info("Sunshine restart completed (flatpak)")
+                return
+            logging.warning(
+                "flatpak restart failed (%s): %s",
+                result.returncode,
+                (result.stderr or result.stdout).strip(),
+            )
+        except Exception as e:
+            logging.warning(f"flatpak restart failed: {e}")
+
+    if os.name != "nt" and not sunshine_exe_path:
+        logging.warning(
+            "Host restart skipped. Try: systemctl --user restart sunshine"
+        )
         return
-    
+
     if not sunshine_exe_path or not os.path.exists(sunshine_exe_path):
         logging.warning("Host executable path not configured or doesn't exist. Skipping restart.")
         return
-    
-    # Derive process name from exe path so both Sunshine and Apollo work
+
     process_name = os.path.basename(sunshine_exe_path).lower()
     logging.info(f"Restarting host ({process_name})...")
     try:
         terminated = False
-        for proc in psutil.process_iter(['name', 'pid']):
-            if proc.info['name'] and proc.info['name'].lower() == process_name:
+        for proc in psutil.process_iter(["name", "pid"]):
+            if proc.info["name"] and proc.info["name"].lower() == process_name:
                 logging.debug(f"Terminating Sunshine process (PID: {proc.info['pid']})")
                 proc.terminate()
                 try:
                     proc.wait(timeout=30)
                     terminated = True
                 except psutil.TimeoutExpired:
-                    logging.warning(f"Sunshine process (PID: {proc.info['pid']}) didn't terminate gracefully")
+                    logging.warning(
+                        f"Sunshine process (PID: {proc.info['pid']}) didn't terminate gracefully"
+                    )
                     proc.kill()
-        
+
         if terminated:
-            time.sleep(3)  # Brief pause before restart
-        
+            time.sleep(3)
+
         logging.info(f"Starting host from: {sunshine_exe_path}")
-        subprocess.Popen([sunshine_exe_path], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        subprocess.Popen(
+            [sunshine_exe_path], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+        )
         logging.info("Host restart completed")
-        
     except Exception as e:
         logging.error(f"Error restarting Sunshine: {e}")
 
@@ -862,6 +980,9 @@ def process_existing_apps(
             continue
         if cmd.startswith('steam://rungameid/'):
             app_id = cmd.split('/')[-1].split('?')[0]
+        else:
+            app_id = _extract_steam_app_id(cmd)
+        if app_id:
             if app_id in installed_games:
                 updated_apps.append(app)
                 existing_steam_apps.add(app_id)
@@ -936,21 +1057,7 @@ def add_new_games(new_games: Set[str], installed_games: Dict[str, str], api_key:
             try:
                 grid_path = future.result()
                 game_name = installed_games[app_id]
-                
-                # Determine command based on platform
-                if os.name == 'nt':
-                    cmd = f"steam://rungameid/{app_id}"
-                else:
-                    # Check for Flatpak Steam
-                    flatpak_steam = subprocess.run(
-                        ['flatpak', 'list', '--app', '--columns=application'], 
-                        capture_output=True, text=True
-                    ).stdout
-                    
-                    if 'com.valvesoftware.Steam' in flatpak_steam:
-                        cmd = f"flatpak run com.valvesoftware.Steam steam://rungameid/{app_id}"
-                    else:
-                        cmd = f"steam steam://rungameid/{app_id}"
+                cmd = _steam_launch_cmd(app_id)
                 
                 new_app = {
                     "name": game_name,
@@ -1178,11 +1285,20 @@ def get_stock_default_apps(host: str) -> List[Dict]:
             prep_undo="open steam://open/bigpicture",
         )
     else:
+        mode = _steam_mode()
+        if mode == "flatpak":
+            steam_detached = "flatpak run com.valvesoftware.Steam steam://open/bigpicture"
+            steam_prep_do = "flatpak run com.valvesoftware.Steam steam://close/bigpicture"
+            steam_prep_undo = "flatpak run com.valvesoftware.Steam steam://open/bigpicture"
+        else:
+            steam_detached = "setsid steam steam://open/bigpicture"
+            steam_prep_do = "setsid steam steam://close/bigpicture"
+            steam_prep_undo = "setsid steam steam://open/bigpicture"
         steam = _app(
             "Steam Big Picture",
-            detached="steam steam://open/bigpicture",
-            prep_do="steam steam://close/bigpicture",
-            prep_undo="steam steam://open/bigpicture",
+            detached=steam_detached,
+            prep_do=steam_prep_do,
+            prep_undo=steam_prep_undo,
         )
 
     if host == "apollo":
@@ -1264,10 +1380,31 @@ def main() -> None:
     parser.add_argument('--no-restart', action='store_true', help='Skip starting Steam (if not running) and skip restarting Sunshine/Apollo')
     parser.add_argument('--dry-run', action='store_true', help='Show what would be done without making changes')
     parser.add_argument('--remove-games', action='store_true', help='Remove all games (Steam + manually added); keep only stock apps Desktop, Steam, Virtual Display')
+    parser.add_argument('--auto-config', action='store_true', help='Write a .env file from auto-detected paths and exit')
+    parser.add_argument('--print-config', action='store_true', help='Print auto-detected paths as JSON and exit')
     args = parser.parse_args()
     
     # Setup logging
     setup_logging(args.verbose)
+
+    if args.print_config:
+        detected = detect_paths()
+        if not detected:
+            print(json.dumps({"error": "Could not detect Steam/Sunshine paths"}, indent=2))
+            sys.exit(1)
+        print(json.dumps(paths_to_env(detected), indent=2))
+        return
+
+    if args.auto_config:
+        detected = detect_paths()
+        if not detected:
+            logging.error("Could not detect Steam/Sunshine paths on this machine")
+            sys.exit(1)
+        env_path = write_env_file(detected)
+        logging.info("Wrote %s for %s", env_path, detected.host_label)
+        print(f"Created {env_path}")
+        return
+
     logging.info("Starting Sunshine Steam Game Automation")
     
     try:

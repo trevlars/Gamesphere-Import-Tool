@@ -1,0 +1,10 @@
+{
+  "name": "gamesphere-import",
+  "author": "trevlars",
+  "flags": ["_root_"],
+  "publish": {
+    "tags": ["streaming", "sunshine", "gamesphere"],
+    "description": "Import Steam games into Sunshine for GameSphere streaming.",
+    "image": "https://raw.githubusercontent.com/trevlars/Gamesphere-Import-Tool/main/assets/readme-screenshot.png"
+  }
+}
