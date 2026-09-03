@@ -171,6 +171,69 @@ def _extract_steam_app_id(cmd: str) -> Optional[str]:
     return None
 
 
+def _app_steam_app_id(app: Dict) -> Optional[str]:
+    """Extract Steam app id from cmd and/or detached fields."""
+    app_id = _extract_steam_app_id((app.get("cmd") or "").strip())
+    if app_id:
+        return app_id
+    detached = app.get("detached")
+    if isinstance(detached, list):
+        for item in detached:
+            app_id = _extract_steam_app_id(str(item))
+            if app_id:
+                return app_id
+    elif isinstance(detached, str) and detached.strip():
+        return _extract_steam_app_id(detached.strip())
+    return None
+
+
+def _linux_stream_prep_cmds() -> List[Dict]:
+    """Return stream-prep hooks when the Bazzite helper script is present."""
+    if os.name == "nt" or sys.platform == "darwin":
+        return []
+    script = os.path.expanduser("~/.local/bin/sunshine-stream-prep.sh")
+    if os.path.isfile(script) and os.access(script, os.X_OK):
+        return [{"do": f"{script} start", "undo": f"{script} stop", "elevated": False}]
+    return []
+
+
+def _build_steam_app(app_id: str, game_name: str, grid_path: Optional[str]) -> Dict:
+    """Build a Sunshine app entry using platform-correct cmd/detached fields."""
+    launch = _steam_launch_cmd(app_id)
+    app: Dict = {
+        "name": game_name,
+        "output": "",
+        "elevated": "false",
+        "hidden": "true",
+        "wait-all": "true",
+        "exit-timeout": "5",
+        "image-path": grid_path or "",
+    }
+    if os.name == "nt":
+        app["cmd"] = launch
+        app["detached"] = ""
+    else:
+        # Sunshine docs: Steam must be detached on Linux/macOS (Steam respawns itself).
+        app["cmd"] = ""
+        app["detached"] = [launch]
+        prep_cmds = _linux_stream_prep_cmds()
+        if prep_cmds:
+            app["prep-cmd"] = prep_cmds
+    return app
+
+
+def _repair_steam_app_entry(app: Dict) -> Dict:
+    """Fix Steam entries that incorrectly use cmd instead of detached on Linux."""
+    app_id = _app_steam_app_id(app)
+    if not app_id:
+        return app
+    repaired = _build_steam_app(app_id, app.get("name", ""), app.get("image-path"))
+    repaired["name"] = app.get("name", repaired["name"])
+    if app.get("prep-cmd") and not repaired.get("prep-cmd"):
+        repaired["prep-cmd"] = app["prep-cmd"]
+    return repaired
+
+
 def _is_steam_running() -> bool:
     """Return True if Steam is already running."""
     steam_names = {"steam.exe", "steam", "steam_osx"}
@@ -913,14 +976,15 @@ def process_existing_apps(
     custom_cmds: Optional[Set[str]] = None,
     installed_xbox: Optional[Dict[str, Dict]] = None,
     shortcuts_folder: Optional[str] = None,
-) -> Tuple[List[Dict], List[Tuple[str, str]], List[Tuple[str, str]], Set[str], Set[str], Set[str]]:
-    """Process existing Sunshine apps and identify changes. Returns (updated_apps, removed_steam, removed_epic, existing_steam_ids, existing_epic_ids, existing_xbox_cmds)."""
+) -> Tuple[List[Dict], List[Tuple[str, str]], List[Tuple[str, str]], Set[str], Set[str], Set[str], int]:
+    """Process existing Sunshine apps and identify changes."""
     updated_apps = []
     removed_steam = []
     removed_epic: List[Tuple[str, str]] = []
     existing_steam_apps: Set[str] = set()
     existing_epic_apps: Set[str] = set()
     existing_xbox_cmds: Set[str] = set()
+    repaired_steam = 0
     installed_epic = installed_epic or {}
     custom_cmds = custom_cmds or set()
     installed_xbox = installed_xbox or {}
@@ -978,12 +1042,14 @@ def process_existing_apps(
             else:
                 updated_apps.append(app)
             continue
-        if cmd.startswith('steam://rungameid/'):
-            app_id = cmd.split('/')[-1].split('?')[0]
-        else:
-            app_id = _extract_steam_app_id(cmd)
+        app_id = _app_steam_app_id(app)
         if app_id:
             if app_id in installed_games:
+                if os.name != "nt":
+                    fixed = _repair_steam_app_entry(app)
+                    if fixed != app:
+                        repaired_steam += 1
+                    app = fixed
                 updated_apps.append(app)
                 existing_steam_apps.add(app_id)
             else:
@@ -1030,7 +1096,7 @@ def process_existing_apps(
         else:
             updated_apps.append(app)
 
-    return updated_apps, removed_steam, removed_epic, existing_steam_apps, existing_epic_apps, existing_xbox_cmds
+    return updated_apps, removed_steam, removed_epic, existing_steam_apps, existing_epic_apps, existing_xbox_cmds, repaired_steam
 
 def add_new_games(new_games: Set[str], installed_games: Dict[str, str], api_key: str, grids_folder: str) -> List[Dict]:
     """Add new games with grid images using concurrent downloads."""
@@ -1057,19 +1123,7 @@ def add_new_games(new_games: Set[str], installed_games: Dict[str, str], api_key:
             try:
                 grid_path = future.result()
                 game_name = installed_games[app_id]
-                cmd = _steam_launch_cmd(app_id)
-                
-                new_app = {
-                    "name": game_name,
-                    "cmd": cmd,
-                    "output": "",
-                    "detached": "",
-                    "elevated": "false",
-                    "hidden": "true",
-                    "wait-all": "true",
-                    "exit-timeout": "5",
-                    "image-path": grid_path or ""
-                }
+                new_app = _build_steam_app(app_id, game_name, grid_path)
                 new_apps.append(new_app)
                 logging.info(f"Added: {game_name}")
                 
@@ -1465,7 +1519,7 @@ def main() -> None:
         
         # Process existing apps (Steam, Epic, custom, Xbox)
         shortcuts_folder = config.get('SUNSHINE_SHORTCUTS_FOLDER') or ''
-        updated_apps, removed_steam, removed_epic, existing_steam_apps, existing_epic_apps, existing_xbox_cmds = process_existing_apps(
+        updated_apps, removed_steam, removed_epic, existing_steam_apps, existing_epic_apps, existing_xbox_cmds, repaired_steam = process_existing_apps(
             sunshine_config, installed_games, installed_epic, custom_cmds, installed_xbox, shortcuts_folder
         )
         
@@ -1492,7 +1546,10 @@ def main() -> None:
         if new_custom:
             logging.info(f"New custom games to add: {[g['name'] for g in new_custom]}")
         
-        if not removed_steam and not removed_epic and not new_games and not new_epic and not new_xbox and not new_custom:
+        if repaired_steam:
+            logging.info("Repaired %d Steam app(s) for Linux detached launch", repaired_steam)
+
+        if not removed_steam and not removed_epic and not new_games and not new_epic and not new_xbox and not new_custom and not repaired_steam:
             logging.info("No changes needed - all games are up to date")
             return
         
